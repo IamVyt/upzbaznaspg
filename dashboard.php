@@ -42,6 +42,41 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         redirect('dashboard.php');
     }
 
+    // Hapus permanen transaksi yang sudah di-void. Hanya admin. Transaksi void tidak dihitung ke saldo, jadi saldo tidak berubah.
+    // Isi transaksi yang dihapus dicatat di Riwayat aktivitas sebagai jejak audit
+    if (in_array($aksi, ['hapus_void', 'hapus_semua_void'], true)) {
+        if (($_SESSION['role'] ?? '') !== 'admin') {
+            flash('danger', 'Hanya admin yang dapat menghapus permanen transaksi void.');
+            redirect('dashboard.php');
+        }
+        $target = $aksi === 'hapus_void'
+            ? q_all($conn, "SELECT * FROM transaksi WHERE id = ? AND dibatalkan_at IS NOT NULL", 'i', [$id])
+            : q_all($conn, "SELECT * FROM transaksi WHERE dibatalkan_at IS NOT NULL");
+        if (!$target) {
+            flash('info', 'Tidak ada transaksi void yang bisa dihapus.');
+        } else {
+            $idHapus = implode(',', array_map('intval', array_column($target, 'id')));
+            $galat = jalankan_transaksi($conn, function () use ($conn, $idHapus) {
+                // Donasi online yang menunjuk ke catatan ini dilepas dulu agar tidak menunjuk data yang sudah tidak ada
+                try {
+                    q($conn, "UPDATE donasi SET transaksi_id = NULL WHERE transaksi_id IN ($idHapus)");
+                } catch (Throwable $e) {
+                }
+                q($conn, "DELETE FROM transaksi WHERE id IN ($idHapus) AND dibatalkan_at IS NOT NULL");
+            });
+            if ($galat) {
+                flash('danger', $galat);
+            } else {
+                $satu = $aksi === 'hapus_void';
+                catat_audit($conn, $aksi, 'transaksi', $satu ? (int)$target[0]['id'] : null,
+                    $satu ? ['nama' => $target[0]['nama_pihak'], 'tipe' => $target[0]['tipe'], 'jumlah' => $target[0]['jumlah'], 'alasan_batal' => $target[0]['alasan_batal']] : null,
+                    ['jumlah_transaksi' => count($target), 'total_nominal' => array_sum(array_column($target, 'jumlah'))]);
+                flash('success', count($target) . ' transaksi void dihapus permanen. Saldo kas tidak berubah.');
+            }
+        }
+        redirect('dashboard.php');
+    }
+
     $lama = ($aksi === 'ubah' && $id > 0) ? q_one($conn, "SELECT * FROM transaksi WHERE id = ? AND dibatalkan_at IS NULL", 'i', [$id]) : null;
     if ($aksi === 'ubah' && !$lama) {
         flash('danger', 'Transaksi tidak ditemukan atau sudah dibatalkan.');
@@ -100,6 +135,8 @@ $f  = filter_transaksi(true);   // untuk tabel
 $ft = filter_transaksi(false);  // untuk kartu total
 $adaFilter = $f['cari'] !== '' || $f['mulai'] !== '' || $f['selesai'] !== '' || $f['tipe'] !== 'semua' || $f['kategori'] > 0;
 $saldo = hitung_saldo($conn);
+$isAdmin = ($_SESSION['role'] ?? '') === 'admin';
+$jmlVoid = $isAdmin ? (int)q_one($conn, "SELECT COUNT(*) AS n FROM transaksi WHERE dibatalkan_at IS NOT NULL")['n'] : 0;
 
 $total = ['masuk' => 0, 'keluar' => 0];
 $jml   = ['masuk' => 0, 'keluar' => 0];
@@ -185,6 +222,13 @@ include __DIR__ . '/php/app_header.php';
 <section class="cols">
  <div class="card">
   <h2 class="sub">Riwayat transaksi <small><?= $baris ?> data<?= $adaFilter ? ', filter diterapkan' : '' ?></small></h2>
+  <?php if ($isAdmin && $jmlVoid > 0): ?>
+  <form class="acts end" method="post" style="margin:-.4rem 0 1rem">
+   <?= csrf_field() ?>
+   <input type="hidden" name="aksi" value="hapus_semua_void">
+   <button class="btn o sm bahaya" type="submit" data-konfirmasi="<?= e('Hapus permanen SEMUA ' . $jmlVoid . ' transaksi void? Datanya hilang dari tabel dan tidak bisa dikembalikan. Saldo kas tidak berubah karena transaksi void memang tidak dihitung. Isinya tetap tercatat di Riwayat aktivitas.') ?>">Hapus semua yang void (<?= $jmlVoid ?>)</button>
+  </form>
+  <?php endif; ?>
   <div class="scroll">
    <table class="tbl">
     <thead><tr><th>Tanggal</th><th>Nama dan keterangan</th><th>Jenis</th><th class="r">Jumlah</th><th class="r">Aksi</th></tr></thead>
@@ -197,11 +241,12 @@ include __DIR__ . '/php/app_header.php';
      <tr class="<?= $void ? 'void' : '' ?>" <?= $void ? 'title="Void: ' . e($r['alasan_batal'] ?? '-') . '"' : '' ?>>
       <td class="nw"><?= date('d/m/Y', strtotime($r['tanggal'])) ?></td>
       <td><b><?= e($r['nama']) ?></b>
-       <span class="meta"><?php if ($r['kategori_nama']): ?><i class="cat"><?= e($r['kategori_nama']) ?></i><?php endif; ?><?php if ($r['keterangan']): ?><small title="<?= e($r['keterangan']) ?>"><?= e($r['keterangan']) ?></small><?php endif; ?></span></td>
+       <span class="meta"><?php if ($r['kategori_nama']): ?><i class="cat"><?= e($r['kategori_nama']) ?></i><?php endif; ?><?php if ($r['keterangan']): ?><small class="ket" title="<?= e($r['keterangan']) ?>"><?= e($r['keterangan']) ?></small><?php endif; ?></span></td>
       <td><?php if ($void): ?><span class="badge void">Void</span><?php else: ?><span class="badge <?= $in ? 'in' : 'out' ?>"><?= $in ? 'Pemasukan' : 'Pengeluaran' ?></span><?php endif; ?></td>
       <td class="r nw"><b><?= $in ? '+' : '-' ?> <?= rupiah($r['jumlah']) ?></b></td>
       <td class="r nw">
        <?php if ($void): ?><small>Dibatalkan</small>
+       <?php if ($isAdmin): ?><form class="inline" method="post"><?= csrf_field() ?><input type="hidden" name="aksi" value="hapus_void"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>"><button class="lnk del" type="submit" data-konfirmasi="<?= e('Hapus permanen transaksi ' . $r['nama'] . ' sebesar ' . rupiah($r['jumlah']) . '? Datanya hilang dari tabel dan tidak bisa dikembalikan. Saldo tidak berubah karena transaksi ini sudah void.') ?>">Hapus permanen</button></form><?php endif; ?>
        <?php elseif (can_input()): ?>
        <button class="lnk" type="button" data-dialog="dlg-form" data-aksi="ubah" data-tipe="<?= e($r['tipe']) ?>" data-id="<?= (int)$r['id'] ?>" data-nama="<?= e($r['nama']) ?>" data-jumlah="<?= (int)$r['jumlah'] ?>" data-tanggal="<?= e(date('Y-m-d', strtotime($r['tanggal']))) ?>" data-kategori="<?= (int)$r['kategori_id'] ?>" data-keterangan="<?= e($r['keterangan']) ?>">Ubah</button>
        <button class="lnk del" type="button" data-dialog="dlg-void" data-id="<?= (int)$r['id'] ?>" data-nama="<?= e($r['nama']) ?>">Batalkan</button>

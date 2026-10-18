@@ -13,8 +13,8 @@ $menuSamping = [
     ['dashboard', 'dashboard.php', 'Dashboard kas', 'i-home', $semua],
     ['donasi', 'donasi_masuk.php', 'Donasi masuk', 'i-inbox', $semua],
     ['pembayaran', 'pembayaran.php', 'Metode pembayaran', 'i-card', $semua],
-    ['muzakki', 'muzakki.php', 'Data muzakki', 'i-heart', $semua],
-    ['mustahik', 'mustahik.php', 'Data mustahik', 'i-user', $semua],
+    ['penyaluran', 'data_penyaluran.php', 'Data penyaluran', 'i-heart', $semua],
+    ['data_donasi', 'data_donasi.php', 'Data donasi', 'i-user', $semua],
     ['program', 'program.php', 'Program dan kategori', 'i-tag', $semua],
     ['users', 'users.php', 'Kelola pengguna', 'i-users', ['admin']],
     ['audit', 'audit.php', 'Riwayat aktivitas', 'i-clock', ['admin']],
@@ -48,7 +48,7 @@ $menuSamping = [
   <div class="me">
    <b><?= e($_SESSION['nama'] ?? 'Petugas') ?></b><small><?= e($peran) ?></small>
    <a class="item" href="index.php"><svg class="ico"><use href="#i-site"/></svg>Beranda situs</a>
-   <a class="item <?= $aktif === 'password' ? 'on' : '' ?>" href="ganti_password.php"><svg class="ico"><use href="#i-key"/></svg>Ganti password</a>
+   <a class="item <?= $aktif === 'akun' ? 'on' : '' ?>" href="akun.php"><svg class="ico"><use href="#i-key"/></svg>Pengaturan akun</a>
    <a class="item" href="logout.php"><svg class="ico"><use href="#i-out"/></svg>Keluar</a>
   </div>
  </aside>
@@ -70,8 +70,7 @@ $menuSamping = [
   <?php if ($masuk): ?>
   <?php if (is_staff()): ?><li><a href="dashboard.php">Dashboard</a></li><?php endif; ?>
   <li><a href="donasi_saya.php">Donasi saya</a></li>
-  <li><a href="ganti_password.php">Ganti password</a></li>
-  <li><a class="btn o" href="logout.php">Keluar (<?= e(strtok($_SESSION['nama'] ?? 'Akun', ' ')) ?>)</a></li>
+  <?php include __DIR__ . '/menu_akun.php'; ?>
   <?php else: ?>
   <?php if (!in_array(basename($_SERVER['SCRIPT_NAME']), ['login.php', 'register.php'], true)): ?><li><a href="login.php">Login</a></li><?php endif; ?>
   <?php if (basename($_SERVER['SCRIPT_NAME']) === 'register.php'): ?><li><a class="btn o" href="login.php">Login</a></li><?php else: ?><li><a class="btn o" href="register.php">Daftar</a></li><?php endif; ?>

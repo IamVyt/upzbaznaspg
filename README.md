@@ -16,16 +16,18 @@ Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online untuk Unit Pengump
 - **Unggah Bukti Transfer:** Donatur dapat mengunggah bukti pembayaran secara aman.
 - **Kuitansi / Bukti Donasi Digital:** Bukti setor resmi dengan format siap cetak (`window.print()`).
 - **Portal Donatur (Muzakki):** Pendaftaran akun donatur dan pelacakan status riwayat donasi pribadi.
+- **Donatur Terbaru di Beranda:** Section di landing page menampilkan donatur yang sudah tersalurkan donasinya dan **menyetujui** tampil lewat kotak centang di form donasi (bawaan tidak tampil). Yang tampil hanya nama (atau Hamba Allah), program, dan waktu, tanpa nominal, kontak, atau NIP. Catatan donatur tampil sebagai doa hanya bila dicentang terpisah. Jika yang bersedia tampil masih kurang dari 3, section memakai testimoni statis dari `php/data.php`.
+- **Pengaturan Akun:** Menu dropdown di header setelah login (Pengaturan akun dan Keluar). Pengguna dapat memperbarui profil (nama, username, email, nomor WhatsApp, NIP) dan mengganti password. Data profil otomatis mengisi form donasi.
 
 ### 2. Back-Office & Manajemen Keuangan
 - **Dashboard Keuangan:** Statistik ringkasan kas (Saldo, Pemasukan, Penyaluran), grafik arus kas 6 bulan terakhir dengan Chart.js.
 - **Verifikasi Donasi Masuk:** Petugas dapat memeriksa bukti pembayaran, menerima (otomatis mencatat ke kas dan menambah saldo), atau menolak donasi dengan alasan tertentu.
 - **Manajemen Transaksi Terpadu:** Pencatatan kas masuk dan keluar secara langsung, dilengkapi fitur pembatalan (*void*) bersyarat dan pencatatan alasan batal.
 - **Pengaturan Metode Pembayaran:** Admin dapat mengaktifkan, menonaktifkan, dan mengatur nomor rekening bank atau e-wallet.
-- **Master Data:**
-  - **Mustahik:** Klasifikasi 8 Asnaf (Fakir, Miskin, Amil, Muallaf, Riqab, Gharim, Sabilillah, Ibnu Sabil).
-  - **Muzakki:** Data donatur terdaftar.
-  - **Program & Kategori Dana:** Kategori pemasukan dan program penyaluran aktif.
+- **Data Penyaluran:** Ringkasan donasi yang sudah tersalurkan per program, lengkap dengan riwayat siapa yang berdonasi dan donasi apa.
+- **Data Donasi:** Daftar donasi yang berhasil tersalurkan beserta data donaturnya, dengan pencarian dan filter program. Admin dapat menghapus satu per satu atau semuanya. Datanya ikut hilang dari Donasi masuk dan Donasi saya, sedangkan pembukuan kas tidak berubah. Setiap penghapusan tercatat di Riwayat aktivitas.
+- **Program & Kategori Dana:** Daftar program yang sama dengan landing page (sumbernya `php/data.php`), lengkap dengan kategori kas dan total donasi tiap program. Halaman ini hanya untuk melihat.
+- **Master Data Mustahik dan Muzakki:** Tabelnya tetap dipakai sebagai pilihan di form transaksi kas, tetapi halaman `mustahik.php` dan `muzakki.php` sudah tidak ada di sidebar.
 - **Laporan & Ekspor Excel:** Unduh rekapitulasi laporan transaksi kas dalam format spreadsheet dengan format resmi.
 
 ### 3. Keamanan & Tata Kelola
@@ -34,7 +36,7 @@ Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online untuk Unit Pengump
   - `bendahara`: Akses kelola transaksi kas, verifikasi donasi, dan master data.
   - `ketua`: Hak akses monitor data (view-only laporan dan dashboard).
   - `user`: Akses donatur umum (portal donasi dan riwayat transaksi pribadi).
-- **Audit Log Terperinci:** Mencatat setiap aktivitas krusial (login, transaksi kas, void, perubahan pengguna) beserta snapshot data JSON, waktu, dan IP address.
+- **Audit Log Terperinci:** Mencatat setiap aktivitas krusial (login, transaksi kas, void, perubahan pengguna) beserta snapshot data JSON, waktu, dan IP address. Admin dapat membersihkan riwayat lewat tombol **Hapus riwayat** (1 minggu terakhir, 1 bulan terakhir, atau semua). Penghapusan itu sendiri tercatat sebagai satu baris `audit_hapus`.
 - **Proteksi Keamanan:**
   - Token CSRF pada seluruh form POST.
   - Prepared statements untuk mencegah SQL Injection.
@@ -51,9 +53,8 @@ Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online untuk Unit Pengump
 │   └── style.css
 ├── database/              # Skrip skema dan migrasi database
 │   └── migrasi.sql
-├── img/                   # Aset gambar, maskot SVG, dan QRIS
-│   ├── maskot.svg
-│   └── qris.jpg
+├── img/                   # Aset gambar & maskot SVG
+│   └── maskot.svg
 ├── js/                    # Skrip JavaScript interaktif
 │   ├── app.js
 │   └── main.js
@@ -66,27 +67,31 @@ Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online untuk Unit Pengump
 │   ├── fungsi.php
 │   ├── header.php
 │   ├── koneksi.php
+│   ├── menu_akun.php
 │   ├── pilih_metode.php
 │   └── sprite.php
 ├── uploads/               # Direktori penyimpanan bukti transfer (terproteksi)
+├── akun.php               # Pengaturan akun: profil & ganti password
 ├── audit.php              # Log aktivitas sistem
 ├── bayar.php              # Halaman instruksi transfer & upload bukti
 ├── bukti.php              # Secure image viewer untuk bukti pembayaran
 ├── cetak_donasi.php       # Kuitansi donasi resmi
 ├── dashboard.php          # Dashboard keuangan & ringkasan transaksi
+├── data_donasi.php        # Data donasi berhasil beserta data donatur
+├── data_penyaluran.php    # Ringkasan & riwayat donasi per program
 ├── donasi_aksi.php        # Endpoint aksi pembatalan / penanganan donasi
 ├── donasi_masuk.php       # Verifikasi donasi oleh petugas
 ├── donasi_saya.php        # Riwayat donasi pengguna
 ├── donasi_sukses.php      # Halaman konfirmasi setelah donasi diajukan
 ├── export_excel.php       # Ekspor laporan kas ke Excel
-├── ganti_password.php     # Fitur ganti kata sandi
+├── ganti_password.php     # Dialihkan ke akun.php (tautan lama)
 ├── index.php              # Beranda / Landing page publik
 ├── login.php              # Halaman masuk
 ├── logout.php             # Halaman keluar sistem
-├── mustahik.php           # Kelola data mustahik
-├── muzakki.php            # Kelola data muzakki
+├── mustahik.php           # Kelola data mustahik (tidak ada di sidebar)
+├── muzakki.php            # Kelola data muzakki (tidak ada di sidebar)
 ├── pembayaran.php         # Pengaturan rekening bank & e-wallet
-├── program.php            # Kelola program penyaluran
+├── program.php            # Daftar program (sama dengan landing page)
 ├── register.php           # Pendaftaran akun publik
 ├── salurkan.php           # Formulir donasi online
 └── users.php              # Manajemen akun & hak akses petugas

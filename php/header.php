@@ -23,7 +23,7 @@
   <?php if (($_SESSION['status'] ?? '') === 'login'): ?>
   <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'bendahara', 'ketua'], true)): ?><li><a href="dashboard.php">Dashboard</a></li><?php endif; ?>
   <li><a href="donasi_saya.php">Donasi saya</a></li>
-  <li><a class="btn o" href="logout.php">Keluar (<?= e(strtok($_SESSION['nama'] ?? 'Akun', ' ')) ?>)</a></li>
+  <?php include __DIR__ . '/menu_akun.php'; ?>
   <?php else: ?>
   <li><a class="btn o" href="login.php">Login</a></li>
   <?php endif; ?>

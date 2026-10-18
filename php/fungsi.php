@@ -218,6 +218,9 @@ function siapkan_donasi($conn): void {
         'dibayar_at'    => 'DATETIME DEFAULT NULL AFTER status',
         'bukti'         => 'VARCHAR(60) DEFAULT NULL AFTER dibayar_at',
         'dibatalkan_at' => 'DATETIME DEFAULT NULL AFTER alasan_tolak',
+        // Persetujuan donatur untuk tampil di daftar Donatur terbaru di beranda. Bawaan 0 (tidak tampil)
+        'tampil_beranda' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'tampil_doa'     => 'TINYINT(1) NOT NULL DEFAULT 0',
     ];
     foreach ($tambahan as $nama => $definisi) {
         if (!isset($kolom[$nama])) mysqli_query($conn, "ALTER TABLE donasi ADD COLUMN $nama $definisi");
@@ -232,6 +235,63 @@ function siapkan_donasi($conn): void {
             ('ewallet','gopay','GoPay',1), ('ewallet','ovo','OVO',2), ('ewallet','dana','DANA',3), ('ewallet','shopeepay','ShopeePay',4)");
     }
     $siap = true;
+}
+
+// Menambahkan kolom profil (email, no_hp, nip) ke tabel users bila belum ada, tanpa mengubah data lama.
+// Dipanggil otomatis oleh halaman Pengaturan akun dan form donasi, jadi tidak wajib mengimpor migrasi.sql lagi
+function siapkan_profil($conn): void {
+    static $siap = false;
+    if ($siap) return;
+    $ada = [];
+    foreach (mysqli_fetch_all(mysqli_query($conn, "SHOW COLUMNS FROM users"), MYSQLI_ASSOC) as $k) $ada[$k['Field']] = true;
+    $tambahan = [
+        'email' => 'VARCHAR(100) DEFAULT NULL',
+        'no_hp' => 'VARCHAR(30) DEFAULT NULL',
+        'nip'   => 'VARCHAR(30) DEFAULT NULL',
+    ];
+    foreach ($tambahan as $nama => $definisi) {
+        if (!isset($ada[$nama])) mysqli_query($conn, "ALTER TABLE users ADD COLUMN $nama $definisi");
+    }
+    $siap = true;
+}
+
+// Waktu relatif dalam bahasa Indonesia, mis. "baru saja", "5 menit lalu", "2 jam lalu", "3 hari lalu".
+// Menerima selisih detik yang dihitung database (TIMESTAMPDIFF), jadi tidak terpengaruh beda zona waktu PHP dan MySQL
+function waktu_relatif(int $selisih): string {
+    $selisih = max(0, $selisih);
+    if ($selisih < 60) return 'baru saja';
+    if ($selisih < 3600) return floor($selisih / 60) . ' menit lalu';
+    if ($selisih < 86400) return floor($selisih / 3600) . ' jam lalu';
+    if ($selisih < 86400 * 30) return floor($selisih / 86400) . ' hari lalu';
+    if ($selisih < 86400 * 365) return floor($selisih / (86400 * 30)) . ' bulan lalu';
+    return floor($selisih / (86400 * 365)) . ' tahun lalu';
+}
+
+// Donatur terbaru untuk beranda: hanya donasi yang sudah tersalurkan dan sengaja dipilih donatur untuk ditampilkan.
+// Yang diambil hanya nama (atau Hamba Allah bila disamarkan), program, waktu, dan doa bila donatur mengizinkan.
+// Nominal, kontak, email, dan NIP tidak pernah ikut. Aman dipanggil walau tabel atau kolomnya belum ada (hasilnya kosong)
+function donatur_beranda($conn, int $batas = 10): array {
+    try {
+        $baris = q_all($conn, "SELECT nama, samarkan_nama, program_nama, catatan, tampil_doa, TIMESTAMPDIFF(SECOND, COALESCE(diproses_at, dibuat_at), NOW()) AS umur
+                               FROM donasi WHERE status = 'diterima' AND tampil_beranda = 1
+                               ORDER BY umur ASC, id DESC LIMIT ?", 'i', [$batas]);
+    } catch (Throwable $galat) {
+        return [];
+    }
+    $hasil = [];
+    foreach ($baris as $r) {
+        $doa = '';
+        if ($r['tampil_doa'] && trim((string)$r['catatan']) !== '') {
+            $doa = mb_strimwidth(trim((string)preg_replace('/\s+/', ' ', (string)$r['catatan'])), 0, 180, '…');
+        }
+        $hasil[] = [
+            'nama'    => $r['samarkan_nama'] ? 'Hamba Allah' : mb_strimwidth(trim((string)$r['nama']), 0, 40, '…'),
+            'program' => $r['program_nama'],
+            'doa'     => $doa,
+            'waktu'   => waktu_relatif((int)$r['umur']),
+        ];
+    }
+    return $hasil;
 }
 
 // Jumlah donasi yang sudah dibayar donatur dan menunggu dicek petugas (lencana sidebar). Aman dipanggil walau tabelnya belum ada

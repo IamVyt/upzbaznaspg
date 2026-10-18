@@ -42,6 +42,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $namaMetode = $metode[$d['metode']][0] ?? $d['metode'];
             $via = $namaMetode . (($d['channel_nama'] && $d['channel_nama'] !== $namaMetode) ? ' (' . $d['channel_nama'] . ')' : '');
             $ket = 'Donasi online ' . $d['kode'] . ', ' . $d['program_nama'] . ', ' . $d['paket'] . ', via ' . $via;
+            // Catatan donatur ikut dicatat di kas. Bila donatur memilih disamarkan, catatan tidak dibawa karena bisa memuat identitasnya
+            $catatan = trim((string)preg_replace('/\s+/', ' ', (string)$d['catatan']));
+            if ($catatan !== '' && !$d['samarkan_nama']) $ket .= '. Catatan: ' . $catatan;
             q($conn, "INSERT INTO transaksi (tipe, kategori_id, nama_pihak, jumlah, tanggal, keterangan, dibuat_oleh) VALUES ('masuk', ?, ?, ?, NOW(), ?, ?)",
                 'isdsi', [$kat['id'], $namaPihak, $d['jumlah'], $ket, $userId]);
             $trxId = (int)mysqli_insert_id($conn);
@@ -72,10 +75,64 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 flash('success', 'Donasi ' . $d['kode'] . ' ditandai ditolak.');
             }
         }
+    } elseif (in_array($aksi, ['hapus', 'hapus_semua'], true)) {
+        // Hanya donasi yang belum menyentuh kas yang boleh dihapus di sini: menunggu pembayaran, ditolak, dan dibatalkan.
+        // Donasi yang sudah dibayar donatur (perlu dicek) harus dikonfirmasi atau ditolak dulu. Donasi yang sudah tersalurkan
+        // dikelola di menu Data donasi, karena punya catatan di kas.
+        if (($_SESSION['role'] ?? '') !== 'admin') {
+            flash('danger', 'Hanya admin yang dapat menghapus data donasi.');
+        } elseif ($aksi === 'hapus') {
+            $d = q_one($conn, "SELECT * FROM donasi WHERE id = ? AND status IN ('menunggu', 'ditolak', 'dibatalkan')", 'i', [$id]);
+            $stmt = $d ? q($conn, "DELETE FROM donasi WHERE id = ? AND status IN ('menunggu', 'ditolak', 'dibatalkan')", 'i', [$id]) : null;
+            if (!$stmt || mysqli_stmt_affected_rows($stmt) < 1) {
+                flash('danger', 'Donasi tidak ditemukan atau statusnya sudah berubah. Donasi yang sudah dibayar atau sudah tersalurkan tidak bisa dihapus dari sini.');
+            } else {
+                hapus_bukti($d['bukti']);
+                catat_audit($conn, 'donasi_hapus', 'donasi', $id, [
+                    'kode' => $d['kode'], 'nama' => $d['nama'], 'program' => $d['program_nama'], 'paket' => $d['paket'],
+                    'jumlah' => $d['jumlah'], 'metode' => $d['metode'], 'status' => $d['status'], 'user_id' => $d['user_id'],
+                ]);
+                flash('success', 'Donasi ' . $d['kode'] . ' atas nama ' . $d['nama'] . ' dihapus.');
+            }
+            foreach (['status', 'cari', 'hal'] as $k) {
+                if (is_string($_POST[$k] ?? null) && $_POST[$k] !== '') $balik[$k] = $_POST[$k];
+            }
+        } else {
+            // Hapus semua mengikuti tab yang sedang dibuka, bukan hasil pencarian atau halaman tertentu
+            $tabHapus = is_string($_POST['status'] ?? null) ? $_POST['status'] : '';
+            $sasaran  = ['menunggu' => ['menunggu'], 'batal' => ['ditolak', 'dibatalkan']][$tabHapus] ?? null;
+            if (!$sasaran) {
+                flash('danger', 'Hapus semua hanya tersedia di tab Menunggu pembayaran dan tab Ditolak atau dibatalkan.');
+            } else {
+                $in = implode(',', array_fill(0, count($sasaran), '?'));
+                $tp = str_repeat('s', count($sasaran));
+                $daftarHapus = [];
+                // Baris dikunci lebih dulu, jadi donasi yang tiba-tiba dibayar donatur tidak ikut terhapus
+                $galat = jalankan_transaksi($conn, function () use ($conn, $sasaran, $in, $tp, &$daftarHapus) {
+                    $daftarHapus = q_all($conn, "SELECT id, kode, bukti, jumlah FROM donasi WHERE status IN ($in) FOR UPDATE", $tp, $sasaran);
+                    if ($daftarHapus) {
+                        $ids = implode(',', array_map('intval', array_column($daftarHapus, 'id')));
+                        q($conn, "DELETE FROM donasi WHERE id IN ($ids) AND status IN ($in)", $tp, $sasaran);
+                    }
+                });
+                if ($galat) {
+                    flash('danger', $galat);
+                } elseif (!$daftarHapus) {
+                    flash('info', 'Tidak ada donasi yang bisa dihapus di tab ini.');
+                } else {
+                    foreach ($daftarHapus as $h) hapus_bukti($h['bukti']);
+                    catat_audit($conn, 'donasi_hapus_semua', 'donasi', null, null, [
+                        'tab' => $tabHapus, 'jumlah_donasi' => count($daftarHapus), 'total_nominal' => array_sum(array_column($daftarHapus, 'jumlah')),
+                    ]);
+                    flash('success', count($daftarHapus) . ' donasi dihapus.');
+                }
+            }
+            $balik = ['status' => $tabHapus];
+        }
     } else {
         flash('danger', 'Permintaan tidak valid.');
     }
-    redirect('donasi_masuk.php');
+    redirect('donasi_masuk.php' . (!empty($balik) ? '?' . http_build_query($balik) : ''));
 }
 
 // ===== Data halaman =====
@@ -121,6 +178,16 @@ $daftar   = q_all($conn, "SELECT * FROM donasi WHERE 1=1 " . $sql . " ORDER BY C
 
 $qs = array_filter(['status' => $status, 'cari' => $cari], fn($v) => $v !== '');
 
+// Hapus data donasi hanya untuk admin, dan hanya donasi yang belum menyentuh kas (lihat proses hapus di atas)
+$bolehHapus = ($_SESSION['role'] ?? '') === 'admin';
+$formHapus = function (array $r) use ($status, $cari, $hal) {
+    $pesan = 'Hapus donasi ' . $r['kode'] . ' dari ' . $r['nama'] . ' sebesar ' . rupiah($r['jumlah']) . '? Data ini juga hilang dari riwayat Donasi saya milik donatur. Tindakan ini tidak bisa dibatalkan.';
+    return '<form class="inline" method="post" data-konfirmasi="' . e($pesan) . '">' . csrf_field()
+        . '<input type="hidden" name="aksi" value="hapus"><input type="hidden" name="id" value="' . (int)$r['id'] . '">'
+        . '<input type="hidden" name="status" value="' . e($status) . '"><input type="hidden" name="cari" value="' . e($cari) . '"><input type="hidden" name="hal" value="' . (int)$hal . '">'
+        . '<button class="lnk del" type="submit">Hapus</button></form>';
+};
+
 $title = 'Donasi masuk';
 $aktif = 'donasi';
 include __DIR__ . '/php/app_header.php';
@@ -147,6 +214,14 @@ include __DIR__ . '/php/app_header.php';
    <input class="cari" type="text" name="cari" value="<?= e($cari) ?>" placeholder="Cari nama, kode, atau kontak" aria-label="Cari donasi">
    <button class="btn o sm" type="submit">Cari</button>
   </form>
+  <?php if ($bolehHapus && in_array($status, ['menunggu', 'batal'], true)): $jmlHapus = $status === 'menunggu' ? $hitung['menunggu']['n'] : $batal['n']; ?>
+  <form method="post" data-konfirmasi="<?= e('Hapus SEMUA ' . $jmlHapus . ' donasi di tab ' . $tab[$status][0] . ' (bukan hanya yang tampil di halaman ini atau hasil pencarian)? Donasi tersebut juga hilang dari riwayat Donasi saya milik donatur. Donasi yang sudah dibayar atau sudah tersalurkan tidak ikut terhapus. Tindakan ini tidak bisa dibatalkan.') ?>">
+   <?= csrf_field() ?>
+   <input type="hidden" name="aksi" value="hapus_semua">
+   <input type="hidden" name="status" value="<?= e($status) ?>">
+   <button class="btn o sm bahaya" type="submit"<?= (int)$jmlHapus === 0 ? ' disabled' : '' ?>>Hapus semua</button>
+  </form>
+  <?php endif; ?>
  </div>
 
  <div class="card">
@@ -163,7 +238,8 @@ include __DIR__ . '/php/app_header.php';
       <td class="nw"><?= e(date('d/m/Y', strtotime($r['dibuat_at']))) ?><small><?= e(date('H:i', strtotime($r['dibuat_at']))) ?></small></td>
       <td><b><?= e($r['nama']) ?></b><?= $r['samarkan_nama'] ? ' <i class="cat">disamarkan</i>' : '' ?>
        <small><?= e($r['kontak']) ?><?= $r['email'] ? ', ' . e($r['email']) : '' ?><?= $r['nip'] ? ', NIP ' . e($r['nip']) : '' ?></small>
-       <?php if ($r['catatan']): ?><small title="<?= e($r['catatan']) ?>">Catatan: <?= e(mb_strimwidth($r['catatan'], 0, 60, '...')) ?></small><?php endif; ?></td>
+       <?php if ($r['catatan']): ?><small title="<?= e($r['catatan']) ?>">Catatan: <?= e(mb_strimwidth($r['catatan'], 0, 60, '...')) ?></small><?php endif; ?>
+       <?php if (!empty($r['tampil_beranda'])): ?><small><i class="cat">Tampil di beranda<?= !empty($r['tampil_doa']) ? ' bersama doa' : '' ?></i></small><?php endif; ?></td>
       <td><b><?= e($r['program_nama']) ?></b><small><?= e($r['paket']) ?>, <?= e($r['kode']) ?></small></td>
       <td class="nw"><?= e($namaMetode) ?><?php if ($r['channel_nama'] && $r['channel_nama'] !== $namaMetode): ?><small><?= e($r['channel_nama']) ?></small><?php endif; ?></td>
       <td class="r nw"><b><?= rupiah($r['jumlah']) ?></b></td>
@@ -177,6 +253,8 @@ include __DIR__ . '/php/app_header.php';
        <?php if (in_array($r['status'], ['menunggu', 'dibayar'], true)): $ringkasan = $r['kode'] . ', ' . $r['nama'] . ', ' . rupiah($r['jumlah']); ?>
        <button class="lnk" type="button" data-dialog="dlg-terima" data-proses="t" data-id="<?= (int)$r['id'] ?>" data-ringkas="<?= e($ringkasan) ?>">Konfirmasi</button>
        <button class="lnk del" type="button" data-dialog="dlg-tolak" data-proses="k" data-id="<?= (int)$r['id'] ?>" data-ringkas="<?= e($ringkasan) ?>">Tolak</button>
+       <?php if ($bolehHapus && $r['status'] === 'menunggu'): echo $formHapus($r); endif; ?>
+       <?php elseif ($bolehHapus && in_array($r['status'], ['ditolak', 'dibatalkan'], true)): echo $formHapus($r); ?>
        <?php else: ?><small>Selesai</small><?php endif; ?>
       </td>
       <?php endif; ?>

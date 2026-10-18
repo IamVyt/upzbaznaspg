@@ -184,3 +184,14 @@ SELECT x.jenis, x.kode, x.nama, x.urutan FROM (
     UNION ALL SELECT 'ewallet', 'shopeepay', 'ShopeePay', 4
 ) x
 WHERE NOT EXISTS (SELECT 1 FROM rekening_bayar);
+
+-- 9. Profil pengguna (menu Pengaturan akun): email, nomor WhatsApp atau telepon, dan NIP.
+-- Kolom ini juga ditambahkan otomatis oleh aplikasi, jadi hanya untuk dokumentasi dan pemasangan manual.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(100) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS no_hp VARCHAR(30)  DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nip   VARCHAR(30)  DEFAULT NULL;
+
+-- 10. Persetujuan donatur untuk tampil di daftar Donatur terbaru di beranda (opt-in, bawaan tidak tampil).
+-- tampil_doa berarti catatan donatur ikut tampil sebagai doa. Kolom ini juga ditambahkan otomatis oleh aplikasi.
+ALTER TABLE donasi ADD COLUMN IF NOT EXISTS tampil_beranda TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE donasi ADD COLUMN IF NOT EXISTS tampil_doa     TINYINT(1) NOT NULL DEFAULT 0;

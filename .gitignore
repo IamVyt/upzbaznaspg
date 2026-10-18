@@ -1,6 +1,7 @@
 # Uploads (bukti transfer & berkas dinamis)
 uploads/*
 !uploads/.gitkeep
+img/qris.*
 
 # IDE & Editor files
 .vscode/

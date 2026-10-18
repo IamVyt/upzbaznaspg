@@ -151,10 +151,11 @@ document.querySelectorAll('[data-salin]').forEach((tombol) => {
   });
 });
 
-// Form yang meminta konfirmasi dulu sebelum dikirim
-document.querySelectorAll('form[data-konfirmasi]').forEach((form) => {
+// Konfirmasi sebelum kirim. Pesan boleh ada di form, atau di tombol yang diklik (untuk form dengan dua tombol)
+document.querySelectorAll('form').forEach((form) => {
   form.addEventListener('submit', (e) => {
-    if (!confirm(form.dataset.konfirmasi)) e.preventDefault();
+    const pesan = (e.submitter && e.submitter.dataset.konfirmasi) || form.dataset.konfirmasi;
+    if (pesan && !confirm(pesan)) e.preventDefault();
   });
 });
 
@@ -175,6 +176,22 @@ document.querySelectorAll('[data-hapus-rek]').forEach((tombol) => {
   tombol.addEventListener('click', () => {
     ambil('h-id').value = tombol.dataset.hapusRek;
     ambil('h-nama').textContent = tombol.dataset.nama;
+  });
+});
+
+// Dropdown umum (mis. tombol Hapus riwayat di Log aktivitas): klik untuk buka, klik di luar atau tekan Esc untuk menutup
+document.querySelectorAll('.dd').forEach((kotak) => {
+  const tombol = kotak.querySelector('.dd-btn');
+  const menu = kotak.querySelector('.dd-menu');
+  if (!tombol || !menu) return;
+  const atur = (buka) => {
+    menu.hidden = !buka;
+    tombol.setAttribute('aria-expanded', String(buka));
+  };
+  tombol.addEventListener('click', () => atur(menu.hidden));
+  document.addEventListener('click', (e) => { if (!kotak.contains(e.target)) atur(false); });
+  kotak.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) { atur(false); tombol.focus(); }
   });
 });
 

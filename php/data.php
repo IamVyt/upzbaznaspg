@@ -15,10 +15,28 @@ if (!function_exists('e')) {
 $site = [
     'nama'    => 'UPZ BAZNAS PG',
     'lengkap' => 'UPZ BAZNAS Petrokimia Gresik',
-    'email'   => 'isi alamat email',
-    'telp'    => 'isi nomor kontak',
-    'alamat'  => 'Gresik, Jawa Timur',
+    'email'   => 'upzpkg@gmail.com',
+    'telp'    => '(031) 3973959',
+    'alamat'  => 'Jl. Jenderal Ahmad Yani 07 Gresik, Jawa Timur',
+    'rekening' => ['bank' => 'BSI Syariah', 'nomor' => '2020300041', 'atas_nama' => 'UPZ Baznas Petrokimia Gresik'],
+    'wa'      => '082264904535',
+    'wa_link' => 'https://wa.me/6282264904535',
+    // Peta Google yang tampil di footer
+    'peta'    => 'https://www.google.com/maps?q=UPZ+BAZNAS+Petrokimia+Gresik,+Jl.+Jenderal+Ahmad+Yani+No.03,+Gresik&output=embed',
+    // Ganti '#' dengan alamat akun resmi: nama => [alamat, ikon]
+    'sosial'  => ['Facebook' => ['#', 'i-fb'], 'Instagram' => ['#', 'i-ig'], 'YouTube' => ['#', 'i-yt']],
 ];
+
+// Pilih ikon sesuai kata kunci pada nama program. Ikon-ikonnya ada di php/sprite.php
+function ikon_program($nama)
+{
+    $n = strtolower((string)$nama);
+    foreach (['zakat' => 'ic-zakat', 'infak' => 'ic-infak', 'sedekah' => 'ic-infak', 'pendidikan' => 'ic-ilmu',
+              'kesehatan' => 'ic-sehat', 'ekonomi' => 'ic-usaha', 'kemanusiaan' => 'ic-peduli'] as $kunci => $id) {
+        if (strpos($n, $kunci) !== false) return $id;
+    }
+    return 'ic';
+}
 
 $menu = [
     'tentang' => 'Tentang',

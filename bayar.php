@@ -27,6 +27,7 @@ $bebas     = $nominalTetap <= 0;
 $minimal   = (int)$batasDonasi['min'];
 $maksimal  = (int)$batasDonasi['maks'];
 siapkan_donasi($conn);
+siapkan_profil($conn);
 
 $ada     = metode_tersedia($conn);
 $bank    = channel_aktif($conn, 'bank');
@@ -34,8 +35,16 @@ $ewallet = channel_aktif($conn, 'ewallet');
 
 $isi = [
     'nama' => (string)($_SESSION['nama'] ?? ''), 'kontak' => '', 'email' => '', 'nip' => '',
-    'jumlah' => '', 'metode' => '', 'catatan' => '', 'samarkan' => '',
+    'jumlah' => '', 'metode' => '', 'catatan' => '', 'samarkan' => '', 'tampil_beranda' => '', 'tampil_doa' => '',
 ];
+// Isian awal diambil dari profil akun (menu Pengaturan akun). Tetap bisa diubah khusus untuk donasi ini
+$profil = q_one($conn, "SELECT nama_lengkap, email, no_hp, nip FROM users WHERE id = ?", 'i', [(int)($_SESSION['user_id'] ?? 0)]);
+if ($profil) {
+    $isi['nama']   = (string)($profil['nama_lengkap'] ?: $isi['nama']);
+    $isi['kontak'] = (string)$profil['no_hp'];
+    $isi['email']  = (string)$profil['email'];
+    $isi['nip']    = (string)$profil['nip'];
+}
 $pilihChannel = '';
 $galat = [];
 
@@ -45,6 +54,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $isi[$k] = is_string($v) ? trim($v) : '';
     }
     $isi['samarkan'] = isset($_POST['samarkan']) ? '1' : '';
+    $isi['tampil_beranda'] = isset($_POST['tampil_beranda']) ? '1' : '';
+    $isi['tampil_doa'] = isset($_POST['tampil_doa']) ? '1' : '';
     $c = $_POST['channel_' . $isi['metode']] ?? '';
     $pilihChannel = is_string($c) ? $c : '';
 
@@ -66,6 +77,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!$galat) {
         $userId = (int)($_SESSION['user_id'] ?? 0);
+        // Tampil di beranda hanya atas persetujuan donatur. Doa hanya ikut bila donasinya tampil dan catatannya terisi
+        $tampilBeranda = $isi['tampil_beranda'] === '1' ? 1 : 0;
+        $tampilDoa     = ($tampilBeranda && $isi['tampil_doa'] === '1' && $isi['catatan'] !== '') ? 1 : 0;
 
         // Klik ganda atau muat ulang: pakai donasi yang baru saja dibuat, jangan buat ganda
         $kembar = q_one($conn, "SELECT kode FROM donasi WHERE user_id = ? AND program = ? AND paket = ? AND jumlah = ? AND metode = ?
@@ -83,13 +97,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             for ($coba = 0; $coba < 5 && $kode === null; $coba++) {
                 $calon = 'UPZ-' . date('ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
                 try {
-                    q($conn, "INSERT INTO donasi (kode, user_id, program, program_nama, paket, kategori_kode, nama, samarkan_nama, nip, kontak, email, jumlah, metode, channel, channel_nama, channel_info, catatan)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        'sisssssisssdsssss', [
+                    q($conn, "INSERT INTO donasi (kode, user_id, program, program_nama, paket, kategori_kode, nama, samarkan_nama, nip, kontak, email, jumlah, metode, channel, channel_nama, channel_info, catatan, tampil_beranda, tampil_doa)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        'sisssssisssdsssssii', [
                             $calon, $userId ?: null, $slug, $prog['nama'], $namaPaket, $info['kategori'], $isi['nama'],
                             $isi['samarkan'] === '1' ? 1 : 0, $isi['nip'] !== '' ? $isi['nip'] : null, $isi['kontak'],
                             $isi['email'] !== '' ? $isi['email'] : null, $jumlah, $isi['metode'], $kanal, $kanalNama, $kanalInfo,
                             $isi['catatan'] !== '' ? $isi['catatan'] : null,
+                            $tampilBeranda, $tampilDoa,
                         ]);
                     $kode   = $calon;
                     $idBaru = (int)mysqli_insert_id($conn);
@@ -159,7 +174,7 @@ include __DIR__ . '/php/app_header.php';
   <label for="email">Email (opsional)</label>
   <input id="email" type="email" name="email" value="<?= e($isi['email']) ?>" maxlength="100">
 
-  <label class="cek"><input type="checkbox" name="samarkan" value="1" <?= $isi['samarkan'] === '1' ? 'checked' : '' ?>><span>Tampilkan nama saya sebagai Hamba Allah di pembukuan kas. Pengurus tetap melihat data asli untuk verifikasi.</span></label>
+  <label class="cek"><input type="checkbox" name="samarkan" value="1" <?= $isi['samarkan'] === '1' ? 'checked' : '' ?>><span>Tampilkan nama saya sebagai Hamba Allah di pembukuan kas dan di beranda. Pengurus tetap melihat data asli untuk verifikasi.</span></label>
 
   <?php if ($bebas): ?>
    <?php if ($opsiPaket === 'hitung'): ?>
@@ -185,6 +200,9 @@ include __DIR__ . '/php/app_header.php';
 
   <label for="catatan">Catatan (opsional)</label>
   <textarea id="catatan" name="catatan" rows="3" maxlength="500" placeholder="Mis. niat donasi atau pesan untuk pengurus"><?= e($isi['catatan']) ?></textarea>
+
+  <label class="cek"><input type="checkbox" name="tampil_beranda" value="1" <?= $isi['tampil_beranda'] === '1' ? 'checked' : '' ?>><span>Tampilkan donasi saya di daftar Donatur terbaru di beranda setelah dikonfirmasi. Yang tampil hanya nama (atau Hamba Allah bila dicentang di atas), program, dan waktu, tanpa nominal.</span></label>
+  <label class="cek"><input type="checkbox" name="tampil_doa" value="1" <?= $isi['tampil_doa'] === '1' ? 'checked' : '' ?>><span>Sertakan catatan saya sebagai doa di beranda. Berlaku bila kotak di atas dicentang. Jangan menulis data pribadi di catatan.</span></label>
 
   <button class="btn" type="submit">Kirim donasi</button>
   <small class="bantu">Donasi tercatat di kas UPZ setelah pembayaran Anda dicek dan dikonfirmasi pengurus.</small>

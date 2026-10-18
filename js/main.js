@@ -13,6 +13,22 @@ if (nav && burger) {
   nav.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => atur(false)));
 }
 
+// ===== Dropdown akun di navigasi atas: klik untuk buka, klik di luar atau tekan Esc untuk menutup =====
+document.querySelectorAll('.akun').forEach((kotak) => {
+  const tombol = kotak.querySelector('.akun-btn');
+  const menu = kotak.querySelector('.akun-menu');
+  if (!tombol || !menu) return;
+  const atur = (buka) => {
+    menu.hidden = !buka;
+    tombol.setAttribute('aria-expanded', String(buka));
+  };
+  tombol.addEventListener('click', () => atur(menu.hidden));
+  document.addEventListener('click', (e) => { if (!kotak.contains(e.target)) atur(false); });
+  kotak.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) { atur(false); tombol.focus(); }
+  });
+});
+
 // ===== Testimoni: berjalan sendiri ke kanan, bisa diseret, berhenti saat disentuh =====
 // Kartu digandakan secara otomatis supaya putarannya tidak pernah putus.
 const slider = document.getElementById('sl');

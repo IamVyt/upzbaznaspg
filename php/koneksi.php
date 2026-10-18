@@ -11,6 +11,11 @@ try {
     $conn = mysqli_connect($host, $user, $pass, $db);
     mysqli_set_charset($conn, 'utf8mb4');
 } catch (mysqli_sql_exception $e) {
+    // Beranda (index.php) menandai dirinya boleh tetap tampil tanpa database. Halaman lain tetap berhenti dengan pesan galat
+    if (defined('KONEKSI_BOLEH_GAGAL')) {
+        $conn = null;
+        return;
+    }
     http_response_code(500);
     die('Koneksi database gagal. Pastikan MySQL di XAMPP sudah berjalan dan database "' . htmlspecialchars($db) . '" tersedia.');
 }

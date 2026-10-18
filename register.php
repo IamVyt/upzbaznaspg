@@ -44,7 +44,7 @@ $title = 'Daftar';
 include __DIR__ . '/php/app_header.php';
 ?>
 
-<section class="auth">
+<section class="auth daftar">
  <div class="c g">
   <h1>Mari berbagi kebaikan bersama</h1>
   <p>Buat akun untuk mengikuti program zakat, infak, dan sedekah UPZ BAZNAS Petrokimia Gresik.</p>
@@ -56,19 +56,25 @@ include __DIR__ . '/php/app_header.php';
   <p>Isi data berikut untuk membuat akun.</p>
   <?php if ($galat): ?><div class="alert danger" role="alert"><?= e(implode(' ', $galat)) ?></div><?php endif; ?>
   <?= csrf_field() ?>
-  <label for="nama">Nama lengkap</label>
-  <input id="nama" type="text" name="nama" value="<?= e($isi['nama']) ?>" maxlength="100" required autofocus>
-  <label for="username">Username</label>
-  <input id="username" type="text" name="username" value="<?= e($isi['username']) ?>" maxlength="30" required>
-  <label for="password">Password</label>
-  <div class="pw">
-   <input id="password" type="password" name="password" minlength="8" required>
-   <button type="button" data-pw="password" aria-label="Tampilkan password"><svg><use href="#eye"/></svg></button>
-  </div>
-  <label for="ulang">Ulangi password</label>
-  <div class="pw">
-   <input id="ulang" type="password" name="ulang" minlength="8" required>
-   <button type="button" data-pw="ulang" aria-label="Tampilkan password"><svg><use href="#eye"/></svg></button>
+  <div class="kolom2">
+   <div>
+    <label for="nama">Nama lengkap</label>
+    <input id="nama" type="text" name="nama" value="<?= e($isi['nama']) ?>" maxlength="100" required autofocus>
+    <label for="username">Username</label>
+    <input id="username" type="text" name="username" value="<?= e($isi['username']) ?>" maxlength="30" required>
+   </div>
+   <div>
+    <label for="password">Password</label>
+    <div class="pw">
+     <input id="password" type="password" name="password" minlength="8" required>
+     <button type="button" data-pw="password" aria-label="Tampilkan password"><svg><use href="#eye"/></svg></button>
+    </div>
+    <label for="ulang">Ulangi password</label>
+    <div class="pw">
+     <input id="ulang" type="password" name="ulang" minlength="8" required>
+     <button type="button" data-pw="ulang" aria-label="Tampilkan password"><svg><use href="#eye"/></svg></button>
+    </div>
+   </div>
   </div>
   <button class="btn" type="submit">Buat akun</button>
   <small>Sudah punya akun? <a class="ul" href="login.php">Login di sini</a></small>

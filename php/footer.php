@@ -10,18 +10,32 @@
     <?php endforeach; ?>
    </ul>
   </div>
-  <div class="mid">
-   <div>
-    <span class="tg">Kontak</span>
-    <p>Email: <?= e($site['email']) ?></p>
-    <p>Telepon: <?= e($site['telp']) ?></p>
-    <p>Alamat: <?= e($site['alamat']) ?></p>
+
+  <div class="peta">
+   <div class="petabox">
+    <iframe src="<?= e($site['peta']) ?>" title="Lokasi <?= e($site['lengkap']) ?>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
    </div>
-   <div class="nl">
-    <input type="email" placeholder="Email" aria-label="Email">
-    <button class="btn g" type="button">Berlangganan info</button>
+
+   <div class="info">
+    <div>
+     <span class="tg">Rekening zakat dan infaq</span>
+     <p><?= e($site['rekening']['bank']) ?>, no. rekening <b><?= e($site['rekening']['nomor']) ?></b> a/n <?= e($site['rekening']['atas_nama']) ?></p>
+     <p>Konfirmasikan zakat atau infaq melalui WhatsApp: <a href="<?= e($site['wa_link']) ?>" target="_blank" rel="noopener"><?= e($site['wa']) ?></a></p>
+    </div>
+    <div>
+     <span class="tg">Kontak kami</span>
+     <p><?= e($site['alamat']) ?></p>
+     <p>Telp. dan Fax: <?= e($site['telp']) ?></p>
+     <p><a href="mailto:<?= e($site['email']) ?>"><?= e($site['email']) ?></a></p>
+    </div>
+    <div class="sosial">
+     <?php foreach ($site['sosial'] as $nama => [$url, $ikon]): ?>
+     <a href="<?= e($url) ?>" target="_blank" rel="noopener" aria-label="<?= e($nama) ?>"><svg><use href="#<?= e($ikon) ?>"/></svg></a>
+     <?php endforeach; ?>
+    </div>
    </div>
   </div>
+
   <div class="cp">© <?= date('Y') ?> <?= e($site['lengkap']) ?>. Hak cipta dilindungi.</div>
  </div>
 </footer>

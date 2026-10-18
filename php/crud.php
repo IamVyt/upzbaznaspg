@@ -1,6 +1,6 @@
 <?php
 // crud.php : halaman master data generik (daftar, cari, tambah, ubah, hapus) dengan tampilan dashboard.
-// Dipakai oleh muzakki.php, mustahik.php, program.php, dan users.php. Pengaturannya ada di tiap halaman.
+// Dipakai oleh muzakki.php, mustahik.php, dan users.php. Pengaturannya ada di tiap halaman.
 //
 // Kunci pengaturan: judul, sub, aktif (menu sidebar), tabel, peran (boleh membuka), ubah (boleh mengubah),
 // fields [n=nama kolom, l=label, t=text|textarea|select|password, w=wajib, o=pilihan], cari, kolom, extra, urut, soft, unik, jaga_diri
