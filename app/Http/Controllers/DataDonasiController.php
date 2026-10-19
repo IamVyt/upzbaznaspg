@@ -32,9 +32,10 @@ class DataDonasiController extends Controller
             'n' => Donasi::where('status', 'diterima')->count(),
             'total' => Donasi::where('status', 'diterima')->sum('jumlah'),
             'donatur' => Donasi::where('status', 'diterima')
-                ->distinct()
-                ->selectRaw("COALESCE(CONCAT('u', user_id), CONCAT('n', nama)) as d_id")
-                ->count('d_id'),
+                ->get(['user_id', 'nama'])
+                ->map(fn($d) => $d->user_id ? 'u' . $d->user_id : 'n' . $d->nama)
+                ->unique()
+                ->count(),
         ];
         $rata = $ring['n'] > 0 ? $ring['total'] / $ring['n'] : 0;
 
@@ -52,7 +53,7 @@ class DataDonasiController extends Controller
         // Query daftar donasi berhasil
         $query = Donasi::with(['user', 'transaksi'])
             ->where('status', 'diterima')
-            ->orderByRaw('COALESCE(diproses_at, dibuat_at) DESC')
+            ->orderByRaw('COALESCE(diproses_at, created_at) DESC')
             ->orderBy('id', 'desc');
 
         if ($prog !== '') {

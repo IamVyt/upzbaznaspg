@@ -51,7 +51,7 @@ class DonasiMasukController extends Controller
             $status = 'semua';
         }
 
-        $query = Donasi::query()->orderBy('dibuat_at', 'desc')->orderBy('id', 'desc');
+        $query = Donasi::query()->orderBy('created_at', 'desc')->orderBy('id', 'desc');
 
         if (!empty($tab[$status][1])) {
             $query->whereIn('status', $tab[$status][1]);

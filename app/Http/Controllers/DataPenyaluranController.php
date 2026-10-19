@@ -9,20 +9,21 @@ class DataPenyaluranController extends Controller
 {
     public function index(Request $request)
     {
-        // Ringkasan per program (kunci: slug program)
-        $ringkas = [];
-        $queryRingkas = Donasi::selectRaw("
-            program,
-            MAX(program_nama) AS program_nama,
-            SUM(CASE WHEN status = 'diterima' THEN 1 ELSE 0 END) AS n,
-            COALESCE(SUM(CASE WHEN status = 'diterima' THEN jumlah ELSE 0 END), 0) AS total,
-            COUNT(DISTINCT CASE WHEN status = 'diterima' THEN COALESCE(user_id, nama) END) AS donatur,
-            SUM(CASE WHEN status IN ('menunggu', 'dibayar') THEN 1 ELSE 0 END) AS proses,
-            MAX(CASE WHEN status = 'diterima' THEN COALESCE(diproses_at, dibuat_at) END) AS terakhir
-        ")->groupBy('program')->get();
+        // Ambil semua donasi untuk dihitung per program secara agnostik database (kompatibel MySQL, Postgres, SQLite)
+        $semuaDonasi = Donasi::all();
 
-        foreach ($queryRingkas as $r) {
-            $ringkas[$r->program] = $r->toArray();
+        $ringkas = [];
+        foreach ($semuaDonasi->groupBy('program') as $progSlug => $items) {
+            $diterima = $items->where('status', 'diterima');
+            $ringkas[$progSlug] = [
+                'program'      => $progSlug,
+                'program_nama' => $items->first()->program_nama ?? $progSlug,
+                'n'            => $diterima->count(),
+                'total'        => (float)$diterima->sum('jumlah'),
+                'donatur'      => $diterima->map(fn($d) => $d->user_id ? 'u' . $d->user_id : 'n' . $d->nama)->unique()->count(),
+                'proses'       => $items->whereIn('status', ['menunggu', 'dibayar'])->count(),
+                'terakhir'     => $diterima->max(fn($d) => $d->diproses_at ?? $d->created_at),
+            ];
         }
 
         $programs = config('upz.program', []);
@@ -52,7 +53,7 @@ class DataPenyaluranController extends Controller
         // Riwayat donatur per program (50 terbaru tiap program)
         $riwayatRaw = Donasi::with('user')
             ->where('status', 'diterima')
-            ->orderByRaw('COALESCE(diproses_at, dibuat_at) DESC')
+            ->orderByRaw('COALESCE(diproses_at, created_at) DESC')
             ->orderBy('id', 'desc')
             ->take(1000)
             ->get();
@@ -77,9 +78,10 @@ class DataPenyaluranController extends Controller
             $totProses += (int)($r['proses'] ?? 0);
         }
         $totDonatur = Donasi::where('status', 'diterima')
-            ->distinct()
-            ->selectRaw("COALESCE(CONCAT('u', user_id), CONCAT('n', nama)) as d_id")
-            ->count('d_id');
+            ->get(['user_id', 'nama'])
+            ->map(fn($d) => $d->user_id ? 'u' . $d->user_id : 'n' . $d->nama)
+            ->unique()
+            ->count();
 
         return view('data_penyaluran.index', compact(
             'baris', 'riwayat', 'totN', 'totRp', 'totProses', 'totDonatur'

@@ -124,15 +124,15 @@ class DashboardController extends Controller
         }
 
         $startMonth = array_key_first($bulan) . '-01 00:00:00';
-        $graphData = Transaksi::aktif()
+        $trxList = Transaksi::aktif()
             ->where('tanggal', '>=', $startMonth)
-            ->selectRaw("DATE_FORMAT(tanggal, '%Y-%m') as bln, tipe, SUM(jumlah) as total")
-            ->groupBy('bln', 'tipe')
-            ->get();
+            ->get(['tanggal', 'tipe', 'jumlah']);
 
-        foreach ($graphData as $r) {
-            if (isset($bulan[$r->bln])) {
-                $bulan[$r->bln][$r->tipe] = (float)$r->total;
+        foreach ($trxList as $t) {
+            $tgl = $t->tanggal instanceof Carbon ? $t->tanggal : Carbon::parse($t->tanggal);
+            $bln = $tgl->format('Y-m');
+            if (isset($bulan[$bln]) && isset($bulan[$bln][$t->tipe])) {
+                $bulan[$bln][$t->tipe] += (float)$t->jumlah;
             }
         }
 

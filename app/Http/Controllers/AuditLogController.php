@@ -34,12 +34,12 @@ class AuditLogController extends Controller
         $ringkasan = [
             'semua'    => $hitung['semua'],
             'hari_ini' => AuditLog::whereDate('waktu', today())->count(),
-            'aktif'    => AuditLog::where('waktu', '>=', now()->subDays(7))->distinct('username')->count('username'),
+            'aktif'    => AuditLog::where('waktu', '>=', now()->subDays(7))->pluck('username')->unique()->filter()->count(),
         ];
 
         $terbanyak = AuditLog::selectRaw('aksi, count(*) as n')
             ->groupBy('aksi')
-            ->orderByDesc('n')
+            ->orderByRaw('count(*) desc')
             ->first();
 
         $daftarAksi = [];
