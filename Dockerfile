@@ -1,4 +1,4 @@
-FROM php:8.3-fpm
+FROM php:8.4-fpm
 
 # Set environment
 ENV DEBIAN_FRONTEND=noninteractive
@@ -27,7 +27,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
         bcmath \
         opcache \
-        mbstring \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
@@ -46,7 +45,7 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
 
 # Permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
@@ -55,3 +54,4 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
