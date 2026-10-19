@@ -24,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Paksa skema HTTPS untuk semua URL & asset saat di production / reverse proxy
+        if ($this->app->environment('production') || request()->header('x-forwarded-proto') === 'https') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         Blade::directive('rupiah', function ($expression) {
             return "<?php echo format_rupiah($expression); ?>";
         });
