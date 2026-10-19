@@ -10,12 +10,17 @@ sed -i "s/listen \[::\]:[0-9]\+ default_server;/listen \[::\]:${TARGET_PORT} def
 sed -i "s/listen = .*/listen = 127.0.0.1:9000/g" /usr/local/etc/php-fpm.d/zz-docker.conf 2>/dev/null || true
 sed -i "s/listen = .*/listen = 127.0.0.1:9000/g" /usr/local/etc/php-fpm.d/www.conf 2>/dev/null || true
 
-# Pastikan kepemilikan dan permission direktori storage & bootstrap cache
+# Pastikan direktori framework storage tersedia dengan permission yang benar
+mkdir -p /var/www/html/storage/framework/sessions /var/www/html/storage/framework/views /var/www/html/storage/framework/cache
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Buat symbolic link storage public bila belum ada
 php artisan storage:link --force || true
+
+# Pastikan driver session dan cache menggunakan file secara default agar tidak menembak DB jika belum siap
+export SESSION_DRIVER="${SESSION_DRIVER:-file}"
+export CACHE_STORE="${CACHE_STORE:-file}"
 
 # Pastikan APP_KEY tersedia (jika belum diisi di dashboard Render, gunakan fallback agar tidak error 500)
 if [ -z "$APP_KEY" ]; then
