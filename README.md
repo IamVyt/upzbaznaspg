@@ -1,134 +1,173 @@
-# SIM Keuangan & Donasi Online UPZ BAZNAS Petrokimia Gresik
+# SIM Keuangan & Donasi Online UPZ BAZNAS Petrokimia Gresik (Laravel Edition)
 
-Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online untuk Unit Pengumpul Zakat (UPZ) BAZNAS PT Petrokimia Gresik. Aplikasi web ini dibangun menggunakan **PHP 8 (native)**, **MySQL / MariaDB**, antarmuka modern yang responsif dan elegan, serta dilengkapi sistem keamanan berlapis.
+Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online Unit Pengumpul Zakat (UPZ) BAZNAS PT Petrokimia Gresik. Aplikasi ini telah dirombak (*refactored*) secara terstruktur dari arsitektur PHP Native ke **Framework Laravel (terbaru)** dan telah dilengkapi konfigurasi **Docker & Fly.io** dengan dukungan basis data **PostgreSQL**.
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Fitur Utama Sistem
 
 ### 1. Portal Publik & Donasi Online
-- **Landing Page Interaktif:** Informasi profil UPZ, program penyaluran, mitra, dan kontak.
-- **Kalkulator & Pilihan Program Donasi:** Menyalurkan Zakat Maal, Zakat Fitrah, Infak, Sedekah, Dana Sosial, Fidyah, dan Wakaf.
-- **Metode Pembayaran Lengkap:**
-  - **Transfer Bank:** Rekening resmi BCA, BNI, BRI, Mandiri, dan BSI.
-  - **E-Wallet:** GoPay, OVO, DANA, dan ShopeePay.
-  - **QRIS:** Pembayaran instan via scan QR code.
-- **Unggah Bukti Transfer:** Donatur dapat mengunggah bukti pembayaran secara aman.
-- **Kuitansi / Bukti Donasi Digital:** Bukti setor resmi dengan format siap cetak (`window.print()`).
-- **Portal Donatur (Muzakki):** Pendaftaran akun donatur dan pelacakan status riwayat donasi pribadi.
-- **Donatur Terbaru di Beranda:** Section di landing page menampilkan donatur yang sudah tersalurkan donasinya dan **menyetujui** tampil lewat kotak centang di form donasi (bawaan tidak tampil). Yang tampil hanya nama (atau Hamba Allah), program, dan waktu, tanpa nominal, kontak, atau NIP. Catatan donatur tampil sebagai doa hanya bila dicentang terpisah. Jika yang bersedia tampil masih kurang dari 3, section memakai testimoni statis dari `php/data.php`.
-- **Pengaturan Akun:** Menu dropdown di header setelah login (Pengaturan akun dan Keluar). Pengguna dapat memperbarui profil (nama, username, email, nomor WhatsApp, NIP) dan mengganti password. Data profil otomatis mengisi form donasi.
+- **Landing Page Interaktif:** Profil UPZ, program penyaluran, mitra, alur kerja, dan kontak.
+- **Formulir Donasi Terpadu:** Pemilihan program, paket nominal (atau nominal bebas), hitung zakat penghasilan 2.5%, dan opsi anonim (*Hamba Allah*).
+- **Multi-Metode Pembayaran:**
+  - Transfer Bank (BSI, BCA, BNI, BRI, Mandiri).
+  - E-Wallet (GoPay, OVO, DANA, ShopeePay).
+  - QRIS (Scan QR code).
+  - Pembayaran Tunai langsung di kantor UPZ.
+- **Instruksi Transfer & Unggah Bukti:** Halaman petunjuk pembayaran unik dan form upload bukti transfer aman.
+- **Kuitansi Digital Siap Cetak:** Format tanda terima sementara & bukti setor donasi resmi (`window.print()`).
+- **Portal Donatur:** Riwayat donasi pribadi donatur dan pengaturan profil akun.
+- **Daftar Donatur Beranda (Opt-in):** Donatur yang telah terverifikasi dan menyetujui ditampilkan di landing page.
 
 ### 2. Back-Office & Manajemen Keuangan
-- **Dashboard Keuangan:** Statistik ringkasan kas (Saldo, Pemasukan, Penyaluran), grafik arus kas 6 bulan terakhir dengan Chart.js.
-- **Verifikasi Donasi Masuk:** Petugas dapat memeriksa bukti pembayaran, menerima (otomatis mencatat ke kas dan menambah saldo), atau menolak donasi dengan alasan tertentu.
-- **Manajemen Transaksi Terpadu:** Pencatatan kas masuk dan keluar secara langsung, dilengkapi fitur pembatalan (*void*) bersyarat dan pencatatan alasan batal.
-- **Pengaturan Metode Pembayaran:** Admin dapat mengaktifkan, menonaktifkan, dan mengatur nomor rekening bank atau e-wallet.
-- **Data Penyaluran:** Ringkasan donasi yang sudah tersalurkan per program, lengkap dengan riwayat siapa yang berdonasi dan donasi apa.
-- **Data Donasi:** Daftar donasi yang berhasil tersalurkan beserta data donaturnya, dengan pencarian dan filter program. Admin dapat menghapus satu per satu atau semuanya. Datanya ikut hilang dari Donasi masuk dan Donasi saya, sedangkan pembukuan kas tidak berubah. Setiap penghapusan tercatat di Riwayat aktivitas.
-- **Program & Kategori Dana:** Daftar program yang sama dengan landing page (sumbernya `php/data.php`), lengkap dengan kategori kas dan total donasi tiap program. Halaman ini hanya untuk melihat.
-- **Master Data Mustahik dan Muzakki:** Tabelnya tetap dipakai sebagai pilihan di form transaksi kas, tetapi halaman `mustahik.php` dan `muzakki.php` sudah tidak ada di sidebar.
-- **Laporan & Ekspor Excel:** Unduh rekapitulasi laporan transaksi kas dalam format spreadsheet dengan format resmi.
+- **Dashboard Keuangan Eksekutif:** Statistik total saldo, pemasukan, penyaluran, notifikasi donasi masuk, dan visualisasi grafik arus kas 6 bulan (Chart.js).
+- **Verifikasi Donasi Masuk:** Petugas dapat memeriksa bukti pembayaran, menerima (otomatis mencatat ke jurnal kas pemasukan), atau menolak donasi.
+- **Manajemen Transaksi Kas:** Pencatatan kas masuk dan keluar secara langsung, dilengkapi fitur pembatalan (*void*) bersyarat dan pencatatan alasan batal.
+- **Pengaturan Rekening Pembayaran:** Administrator dapat mengaktifkan/menonaktifkan rekening bank atau e-wallet serta mengubah nomor dan atas nama.
+- **Data Penyaluran:** Rekapitulasi penyaluran donasi per program beserta riwayat penerimaan.
+- **Data Donatur & Donasi:** Pencarian terpadu, filter program, ekspor, dan hak hapus bagi Administrator.
+- **Laporan & Ekspor:** Unduh rekapitulasi pembukuan kas dalam format spreadsheet/CSV resmi.
+- **Manajemen Pengguna:** Pengelolaan akun petugas (Admin, Bendahara, Ketua).
 
 ### 3. Keamanan & Tata Kelola
 - **Role-Based Access Control (RBAC):**
-  - `admin`: Akses penuh semua modul, manajemen pengguna, pengaturan pembayaran, dan audit log.
-  - `bendahara`: Akses kelola transaksi kas, verifikasi donasi, dan master data.
+  - `admin`: Akses penuh konfigurasi sistem, kelola pengguna, audit log, dan hapus data.
+  - `bendahara`: Akses kelola transaksi kas masuk/keluar dan verifikasi donasi.
   - `ketua`: Hak akses monitor data (view-only laporan dan dashboard).
-  - `user`: Akses donatur umum (portal donasi dan riwayat transaksi pribadi).
-- **Audit Log Terperinci:** Mencatat setiap aktivitas krusial (login, transaksi kas, void, perubahan pengguna) beserta snapshot data JSON, waktu, dan IP address. Admin dapat membersihkan riwayat lewat tombol **Hapus riwayat** (1 minggu terakhir, 1 bulan terakhir, atau semua). Penghapusan itu sendiri tercatat sebagai satu baris `audit_hapus`.
-- **Proteksi Keamanan:**
-  - Token CSRF pada seluruh form POST.
-  - Prepared statements untuk mencegah SQL Injection.
-  - Password hashing menggunakan algoritma `PASSWORD_DEFAULT` (Bcrypt).
-  - Validasi ketat unggahan berkas (tipe MIME, ukuran berkas, penamaan acak unik).
+  - `user`: Akses donatur umum (portal donasi dan riwayat pribadi).
+- **Audit Log Terperinci:** Mencatat setiap aktivitas penting (login, transaksi kas, void, verifikasi donasi, ubah konfigurasi) lengkap dengan data snapshot JSON, timestamp, dan IP address.
+- **Proteksi Standar Industri:** Token CSRF otomatis, proteksi SQL Injection via Eloquent ORM, Password Bcrypt hashing, dan validasi berkas unggahan ketat.
 
 ---
 
-## 📁 Struktur Direktori
+## 📁 Struktur Direktori Laravel
 
 ```text
-├── css/                   # Stylesheet utama & stylesheet modul aplikasi
-│   ├── app.css
-│   └── style.css
-├── database/              # Skrip skema dan migrasi database
-│   └── migrasi.sql
-├── img/                   # Aset gambar & maskot SVG
-│   └── maskot.svg
-├── js/                    # Skrip JavaScript interaktif
-│   ├── app.js
-│   └── main.js
-├── php/                   # Logika backend, partials, dan fungsi inti
-│   ├── app_footer.php
-│   ├── app_header.php
-│   ├── crud.php
-│   ├── data.php
-│   ├── footer.php
-│   ├── fungsi.php
-│   ├── header.php
-│   ├── koneksi.php
-│   ├── menu_akun.php
-│   ├── pilih_metode.php
-│   └── sprite.php
-├── uploads/               # Direktori penyimpanan bukti transfer (terproteksi)
-├── akun.php               # Pengaturan akun: profil & ganti password
-├── audit.php              # Log aktivitas sistem
-├── bayar.php              # Halaman instruksi transfer & upload bukti
-├── bukti.php              # Secure image viewer untuk bukti pembayaran
-├── cetak_donasi.php       # Kuitansi donasi resmi
-├── dashboard.php          # Dashboard keuangan & ringkasan transaksi
-├── data_donasi.php        # Data donasi berhasil beserta data donatur
-├── data_penyaluran.php    # Ringkasan & riwayat donasi per program
-├── donasi_aksi.php        # Endpoint aksi pembatalan / penanganan donasi
-├── donasi_masuk.php       # Verifikasi donasi oleh petugas
-├── donasi_saya.php        # Riwayat donasi pengguna
-├── donasi_sukses.php      # Halaman konfirmasi setelah donasi diajukan
-├── export_excel.php       # Ekspor laporan kas ke Excel
-├── ganti_password.php     # Dialihkan ke akun.php (tautan lama)
-├── index.php              # Beranda / Landing page publik
-├── login.php              # Halaman masuk
-├── logout.php             # Halaman keluar sistem
-├── mustahik.php           # Kelola data mustahik (tidak ada di sidebar)
-├── muzakki.php            # Kelola data muzakki (tidak ada di sidebar)
-├── pembayaran.php         # Pengaturan rekening bank & e-wallet
-├── program.php            # Daftar program (sama dengan landing page)
-├── register.php           # Pendaftaran akun publik
-├── salurkan.php           # Formulir donasi online
-└── users.php              # Manajemen akun & hak akses petugas
+├── app/
+│   ├── Helpers/helpers.php           # Helper format rupiah, tanggal Indonesia, audit log
+│   ├── Http/
+│   │   ├── Controllers/             # Seluruh logika controller (Home, Donasi, Auth, Dashboard, dll.)
+│   │   └── Middleware/              # Middleware otorisasi peran (EnsureStaff, EnsureRole)
+│   └── Models/                      # Eloquent Models (User, Donasi, Transaksi, KategoriDana, Rekening, dll.)
+├── bootstrap/app.php                # Konfigurasi middleware & routing Laravel 11/12
+├── config/upz.php                   # Konfigurasi program, penyaluran, dan profil UPZ
+├── database/
+│   ├── migrations/                  # Skema tabel database (PostgreSQL / MySQL / SQLite)
+│   └── seeders/                     # Seeder akun awal, kategori kas, dan metode pembayaran
+├── docker/
+│   ├── entrypoint.sh                # Script inisialisasi container & cache Laravel
+│   ├── nginx.conf                   # Web server konfigurasi Nginx port 8080
+│   └── supervisord.conf             # Process manager Nginx + PHP-FPM
+├── public/                          # Root dokumen web server, CSS, JS, dan Gambar
+├── resources/views/                 # Template Blade (layouts, donasi, dashboard, auth, profile)
+├── routes/web.php                   # Definisi seluruh rute aplikasi
+├── Dockerfile                       # Multi-stage production container untuk Fly.io
+├── fly.toml                         # Konfigurasi deployment Fly.io
+└── .env.example                     # Contoh template environment (PostgreSQL ready)
 ```
 
 ---
 
-## 🚀 Panduan Instalasi
+## 🛠️ Panduan Instalasi Lokal
 
 ### 1. Kebutuhan Sistem
-- **Web Server:** Apache (XAMPP / Laragon) atau PHP Built-in Server
-- **PHP:** Versi 8.1 atau lebih baru (ekstensi `mysqli`, `gd`, `json`, `mbstring` aktif)
-- **Database:** MySQL / MariaDB
+- PHP >= 8.2 (dengan ekstensi `pdo`, `pdo_pgsql` / `pdo_sqlite` / `pdo_mysql`, `mbstring`, `gd`, `zip`)
+- Composer >= 2.x
+- Node.js & npm (opsional untuk build frontend)
 
-### 2. Langkah Pemasangan
-1. Tempatkan proyek ini di direktori web server Anda (misal `C:\xampp\htdocs\magang`).
-2. Nyalakan layanan **Apache** dan **MySQL** di XAMPP Control Panel.
-3. Buka **phpMyAdmin** (`http://localhost/phpmyadmin`) dan buat database baru dengan nama `magang`.
-4. Import file migrasi database:
-   - Pilih database `magang` → klik tab **Import** → pilih berkas `database/migrasi.sql` → klik **Import**.
-5. Sesuaikan konfigurasi database jika diperlukan pada file `php/koneksi.php`:
-   ```php
-   $host = 'localhost';
-   $user = 'root';
-   $pass = '';
-   $db   = 'magang';
+### 2. Langkah Instalasi
+1. Clone repositori:
+   ```bash
+   git clone https://github.com/IamVyt/Magang-Baznaz.git
+   cd Magang-Baznaz
    ```
-6. Jalankan aplikasi melalui browser:
-   - Via XAMPP: `http://localhost/magang/`
-   - Atau via PHP built-in server:
-     ```bash
-     php -S localhost:8080
-     ```
-     Lalu akses di `http://localhost:8080/`.
+
+2. Salin environment dan generate app key:
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+3. Jalankan migrasi dan seeder database:
+   ```bash
+   php artisan migrate --seed
+   ```
+
+4. Buat tautan storage berkas:
+   ```bash
+   php artisan storage:link
+   ```
+
+5. Jalankan server lokal:
+   ```bash
+   php artisan serve
+   ```
+   Akses aplikasi di browser: `http://localhost:8000`
 
 ---
 
-## 👥 Hak Cipta & Lisensi
-Dikembangkan untuk kegiatan magang di **UPZ BAZNAS PT Petrokimia Gresik**.  
-Seluruh hak cipta dilindungi.
+## 🔐 Akun Default Sistem
+
+Setelah menjalankan `php artisan migrate --seed`, akun-akun berikut siap digunakan:
+
+| Peran | Username | Password | Deskripsi Akses |
+|---|---|---|---|
+| **Admin** | `admin` | `admin123` | Akses penuh seluruh sistem, audit log, kelola user |
+| **Bendahara** | `bendahara` | `bendahara123` | Kelola kas masuk/keluar & konfirmasi donasi |
+| **Ketua** | `ketua` | `ketua123` | Monitor dashboard dan laporan (view-only) |
+| **Donatur** | `donatur` | `donatur123` | Akun donatur umum (portal donasi) |
+
+---
+
+## 🚀 Panduan Deployment ke Fly.io
+
+Proyek ini telah dilengkapi `Dockerfile`, `docker/entrypoint.sh`, dan `fly.toml` yang siap pakai untuk deployment ke Fly.io dengan basis data **PostgreSQL**.
+
+### Langkah-langkah Deploy:
+
+1. **Login ke Fly CLI:**
+   ```bash
+   fly auth login
+   ```
+
+2. **Buat Database PostgreSQL di Fly.io (jika belum ada):**
+   ```bash
+   fly postgres create --name magang-baznaz-db --region sin
+   ```
+   *(Atau gunakan PostgreSQL cloud eksternal seperti Supabase / Neon).*
+
+3. **Inisialisasi atau Sambungkan Aplikasi:**
+   ```bash
+   fly launch --copy-config
+   ```
+   *Ketika ditanya setup database, Anda dapat menghubungkan PostgreSQL yang dibuat pada langkah 2 atau set URL koneksinya.*
+
+4. **Hubungkan Database PostgreSQL ke Aplikasi Fly:**
+   ```bash
+   fly postgres attach magang-baznaz-db --app magang-baznaz
+   ```
+   *Perintah ini otomatis mengisikan `DATABASE_URL` ke Fly Secrets.*
+
+5. **Set Kunci Enkripsi dan Variabel Environment Penting:**
+   ```bash
+   fly secrets set APP_KEY=$(php artisan key:generate --show)
+   fly secrets set DB_CONNECTION=pgsql
+   ```
+
+6. **Deploy Aplikasi ke Fly.io:**
+   ```bash
+   fly deploy
+   ```
+   Saat deployment berjalan, `fly.toml` secara otomatis menjalankan `php artisan migrate --force` untuk memperbarui skema tabel di PostgreSQL.
+
+7. **Jalankan Seeder Awal di Fly.io:**
+   ```bash
+   fly ssh console -C "php artisan db:seed --force"
+   ```
+
+8. **Buka Aplikasi:**
+   ```bash
+   fly open
+   ```
+
+Aplikasi Anda kini berjalan secara live di jaringan global Fly.io! 🎉

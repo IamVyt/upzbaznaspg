@@ -1,0 +1,35 @@
+# fly.toml app configuration file generated for Fly.io deployment
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+
+app = 'magang-baznas'
+primary_region = 'sin'
+
+[build]
+
+[deploy]
+  release_command = 'php artisan migrate --force'
+
+[env]
+  APP_ENV = 'production'
+  APP_DEBUG = 'false'
+  LOG_CHANNEL = 'stderr'
+  SESSION_DRIVER = 'database'
+  CACHE_STORE = 'database'
+  QUEUE_CONNECTION = 'database'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 250
+    soft_limit = 200
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
