@@ -119,55 +119,55 @@ Setelah menjalankan `php artisan migrate --seed`, akun-akun berikut siap digunak
 
 ---
 
-## 🚀 Panduan Deployment ke Fly.io
+## 🚀 Panduan Deployment ke Render.com + Supabase
 
-Proyek ini telah dilengkapi `Dockerfile`, `docker/entrypoint.sh`, dan `fly.toml` yang siap pakai untuk deployment ke Fly.io dengan basis data **PostgreSQL**.
+Proyek ini telah dikonfigurasi menggunakan **Docker** dan **Render Blueprint (`render.yaml`)**, sehingga siap di-deploy langsung ke **Render.com** dengan basis data cloud **Supabase (PostgreSQL)**.
 
-### Langkah-langkah Deploy:
+### 1. Persiapan Database di Supabase
+1. Buka [Supabase Dashboard](https://supabase.com/dashboard) dan buat proyek baru (misal: `upz-baznas-pg`).
+2. Masuk ke menu **Project Settings** > **Database**.
+3. Di bagian **Connection String**, pilih mode **URI** atau salin parameter koneksi:
+   - **Host:** misal `aws-0-ap-southeast-1.pooler.supabase.com`
+   - **Port:** `5432` (atau `6543`)
+   - **Database:** `postgres`
+   - **User:** `postgres.[project-id]`
+   - **Password:** Password yang Anda buat saat inisialisasi proyek.
 
-1. **Login ke Fly CLI:**
+---
+
+### 2. Langkah Deploy ke Render.com
+1. Buka [Render Dashboard](https://dashboard.render.com).
+2. Klik **New +** > **Web Service**.
+3. Sambungkan repositori GitHub Anda: **`IamVyt/UPZ-Baznas-PG`**.
+4. Pilih **Docker** sebagai *Runtime / Environment*.
+5. Di bagian **Environment Variables**, tambahkan:
+   - `APP_NAME` = `UPZ BAZNAS Petrokimia Gresik`
+   - `APP_ENV` = `production`
+   - `APP_DEBUG` = `false`
+   - `APP_KEY` = `(Hasil dari 'php artisan key:generate --show')`
+   - `DB_CONNECTION` = `pgsql`
+   - `DB_HOST` = `[Host Supabase Anda]`
+   - `DB_PORT` = `5432`
+   - `DB_DATABASE` = `postgres`
+   - `DB_USERNAME` = `[Username Supabase Anda]`
+   - `DB_PASSWORD` = `[Password Supabase Anda]`
+   - `DB_SSLMODE` = `require`
+   - *(Atau cukup isi satu variabel `DB_URL` dengan Connection String dari Supabase)*.
+6. Klik **Create Web Service**.
+
+Container Docker akan otomatis dibangun oleh Render. Saat container menyala, skrip `docker/entrypoint.sh` akan:
+- Menyesuaikan port Nginx secara otomatis dengan port internal Render (`$PORT`).
+- Menjalankan migrasi tabel ke Supabase (`php artisan migrate --force`).
+- Mempersiapkan symbolic link storage dan cache produksi.
+
+---
+
+### 3. Inisialisasi Data Awal (Seeder) di Render
+Setelah deploy berstatus *Live*:
+1. Masuk ke halaman Web Service Anda di Render > tab **Shell**.
+2. Jalankan perintah seeder:
    ```bash
-   fly auth login
+   php artisan db:seed --force
    ```
+3. Akun petugas (`admin`, `bendahara`, `ketua`) dan master kategori/metode pembayaran langsung aktif di Supabase! 🎉
 
-2. **Buat Database PostgreSQL di Fly.io (jika belum ada):**
-   ```bash
-   fly postgres create --name magang-baznaz-db --region sin
-   ```
-   *(Atau gunakan PostgreSQL cloud eksternal seperti Supabase / Neon).*
-
-3. **Inisialisasi atau Sambungkan Aplikasi:**
-   ```bash
-   fly launch --copy-config
-   ```
-   *Ketika ditanya setup database, Anda dapat menghubungkan PostgreSQL yang dibuat pada langkah 2 atau set URL koneksinya.*
-
-4. **Hubungkan Database PostgreSQL ke Aplikasi Fly:**
-   ```bash
-   fly postgres attach magang-baznaz-db --app magang-baznaz
-   ```
-   *Perintah ini otomatis mengisikan `DATABASE_URL` ke Fly Secrets.*
-
-5. **Set Kunci Enkripsi dan Variabel Environment Penting:**
-   ```bash
-   fly secrets set APP_KEY=$(php artisan key:generate --show)
-   fly secrets set DB_CONNECTION=pgsql
-   ```
-
-6. **Deploy Aplikasi ke Fly.io:**
-   ```bash
-   fly deploy
-   ```
-   Saat deployment berjalan, `fly.toml` secara otomatis menjalankan `php artisan migrate --force` untuk memperbarui skema tabel di PostgreSQL.
-
-7. **Jalankan Seeder Awal di Fly.io:**
-   ```bash
-   fly ssh console -C "php artisan db:seed --force"
-   ```
-
-8. **Buka Aplikasi:**
-   ```bash
-   fly open
-   ```
-
-Aplikasi Anda kini berjalan secara live di jaringan global Fly.io! 🎉

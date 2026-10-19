@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: upz-baznas-pg
+    env: docker
+    region: singapore
+    plan: free
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: APP_NAME
+        value: "UPZ BAZNAS Petrokimia Gresik"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_TIMEZONE
+        value: Asia/Jakarta
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_SSLMODE
+        value: require
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: LOG_CHANNEL
+        value: stderr
+      # Variabel yang harus diisi di dashboard Render:
+      # - APP_KEY (generate via: php artisan key:generate --show)
+      # - DB_HOST (dari Supabase Settings > Database > Host)
+      # - DB_PORT (biasanya 5432 atau 6543)
+      # - DB_DATABASE (biasanya postgres)
+      # - DB_USERNAME (biasanya postgres atau postgres.project-ref)
+      # - DB_PASSWORD (password database Supabase Anda)
+      # ATAU cukup isi:
+      # - DB_URL (Transaction / Session connection string dari Supabase)
