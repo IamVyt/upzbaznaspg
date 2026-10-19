@@ -24,7 +24,7 @@ class HomeController extends Controller
                 ->take(6)
                 ->get();
         } catch (\Throwable $e) {
-            report($e);
+            \Illuminate\Support\Facades\Log::warning('DB belum terhubung untuk widget donatur beranda: ' . $e->getMessage());
             $donaturTerbaru = collect();
         }
 
