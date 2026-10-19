@@ -1,134 +1,131 @@
 @extends('layouts.portal')
 
-@section('title', 'Pembayaran Donasi - ' . $donasi->kode)
+@section('title', 'Isi data donasi')
 
 @section('content')
 <section class="top">
-    <div class="head">
-        <h1 class="tag">Instruksi Pembayaran</h1>
-        <p>Kode Referensi Donasi: <b>{{ $donasi->kode }}</b></p>
-    </div>
-
-    <ol class="steps" aria-label="Langkah penyaluran">
-        <li class="done"><b>✓</b>Pilih paket</li>
-        <li class="done"><b>✓</b>Isi data</li>
-        <li class="{{ $donasi->status === 'diterima' ? 'done' : 'on' }}"><b>{{ $donasi->status === 'diterima' ? '✓' : '3' }}</b>Bayar & Konfirmasi</li>
-    </ol>
+ <div class="head"><h1 class="tag">Isi data</h1><p>Lengkapi data berikut. Setelah dikirim, Anda akan mendapat nomor referensi dan petunjuk pembayaran. Metode pembayaran masih bisa diganti sebelum Anda membayar.</p></div>
+ <ol class="steps" aria-label="Langkah penyaluran">
+  <li class="done"><b>✓</b>Pilih paket</li>
+  <li class="on"><b>2</b>Isi data</li>
+  <li><b>3</b>Bayar</li>
+ </ol>
 </section>
 
-<section class="bayar" style="margin-top: 20px;">
-    <div class="c g ringkas">
-        <small>Rincian Tagihan</small>
-        <h2>{{ $donasi->program_nama }}</h2>
-        <p class="pk">{{ $donasi->paket }}</p>
-        <b class="besar">{{ format_rupiah($donasi->jumlah) }}</b>
+<section class="bayar">
+ <div class="c g ringkas">
+  <small>Paket pilihan Anda</small>
+  <h2>{{ $prog['nama'] }}</h2>
+  <p class="pk">{{ $namaPaket }}</p>
+  <b class="besar">{{ $bebas ? 'Nominal bebas' : rupiah($nominalTetap) }}</b>
+  <p>{{ $deskPaket }}</p>
+  <a class="ul" href="{{ route('donasi.create', ['program' => $slug]) }}">Ganti paket</a>
+ </div>
 
-        <div style="margin-top: 14px; padding: 12px; background: #fff; border-radius: 8px; border: 1px solid #ddd;">
-            <div style="font-size: 0.85rem; color: #666;">Status Donasi:</div>
-            <div style="font-size: 1.1rem; font-weight: 700; margin-top: 4px;">
-                @if ($donasi->status === 'menunggu')
-                    <span style="color: #d97706;">⏳ Menunggu Pembayaran</span>
-                @elseif ($donasi->status === 'dibayar')
-                    <span style="color: #2563eb;">🔍 Menunggu Verifikasi Petugas</span>
-                @elseif ($donasi->status === 'diterima')
-                    <span style="color: #16a34a;">✅ Donasi Diterima & Tersalurkan</span>
-                @elseif ($donasi->status === 'ditolak')
-                    <span style="color: #dc2626;">❌ Ditolak ({{ $donasi->alasan_tolak }})</span>
-                @elseif ($donasi->status === 'dibatalkan')
-                    <span style="color: #6b7280;">🚫 Dibatalkan</span>
-                @endif
-            </div>
-        </div>
+ <form class="c l form" method="post" action="{{ route('donasi.prosesBayar') }}" autocomplete="off" data-sekali>
+  <h2><span class="tg">Data donasi</span></h2>
+  @if ($errors->any())
+  <div class="alert danger" role="alert">{{ implode(' ', $errors->all()) }}</div>
+  @endif
+  @csrf
+  <input type="hidden" name="program" value="{{ $slug }}">
+  <input type="hidden" name="paket" value="{{ $idx }}">
 
-        <div style="margin-top: 16px;">
-            <p><b>Nama Donatur:</b> {{ $donasi->nama_tampil }}</p>
-            <p><b>Tanggal:</b> {{ $donasi->created_at->format('d/m/Y H:i') }}</p>
-            @if ($donasi->catatan)
-                <p><b>Catatan:</b> <i>"{{ $donasi->catatan }}"</i></p>
-            @endif
-        </div>
+  @php
+    $nominalKiri  = $bebas;
+    $samarkanKiri = !$bebas || $opsiPaket !== 'hitung';
+    $catatanKiri  = !$bebas;
+  @endphp
 
-        <div style="margin-top: 20px;">
-            <a class="btn o sm" href="{{ route('donasi.cetak', $donasi->kode) }}" target="_blank">
-                Cetak Bukti / Tanda Terima ↗
-            </a>
-        </div>
+  <div class="dua">
+  <div class="kol">
+  <label for="nama">Nama lengkap</label>
+  <input id="nama" type="text" name="nama" value="{{ $isi['nama'] }}" maxlength="150" required>
+
+  <div class="kolom2">
+   <div>
+    <label for="kontak">No. WhatsApp/HP</label>
+    <input id="kontak" type="tel" name="kontak" value="{{ $isi['kontak'] }}" inputmode="tel" maxlength="20" placeholder="081234567890" required>
+   </div>
+   <div>
+    <label for="nip" title="NIP atau ID karyawan (opsional)">NIP</label>
+    <input id="nip" type="text" name="nip" value="{{ $isi['nip'] }}" maxlength="30" placeholder="Opsional">
+   </div>
+  </div>
+
+  <label for="email">Email (opsional)</label>
+  <input id="email" type="email" name="email" value="{{ $isi['email'] }}" maxlength="100">
+
+  @if ($nominalKiri)
+    @if ($opsiPaket === 'hitung')
+    <label for="gaji">Penghasilan Anda (Rp, opsional)</label>
+    <div class="hitung">
+     <input id="gaji" type="number" min="0" step="1" inputmode="numeric" placeholder="Mis. 8000000">
+     <button class="btn o" type="button" data-hitung="2.5" data-sumber="gaji" data-target="jumlah">Hitung 2,5%</button>
     </div>
-
-    <div class="c l form">
-        @if ($donasi->status === 'menunggu' || $donasi->status === 'dibayar')
-            <h2><span class="tg">Rekening Tujuan</span></h2>
-            <div style="background: #fdfdfd; border: 2px dashed var(--ink, #191A23); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
-                <p style="margin: 0 0 6px 0; font-size: 0.95rem;">Transfer tepat sejumlah:</p>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #191A23; margin-bottom: 12px;">
-                    {{ format_rupiah($donasi->jumlah) }}
-                </div>
-
-                @if ($donasi->metode === 'transfer')
-                    <div style="background: #f4f6f0; padding: 12px; border-radius: 8px;">
-                        <span style="font-size: 0.85rem; text-transform: uppercase; color: #666;">Bank Tujuan:</span>
-                        <div style="font-size: 1.2rem; font-weight: 700;">{{ $donasi->channel_nama ?? 'Bank BSI' }}</div>
-                        <div style="font-size: 1.1rem; margin: 4px 0;">No. Rekening: <b>{{ $donasi->channel_info ?? config('upz.site.rekening.nomor') }}</b></div>
-                    </div>
-                @elseif ($donasi->metode === 'ewallet')
-                    <div style="background: #f4f6f0; padding: 12px; border-radius: 8px;">
-                        <span style="font-size: 0.85rem; text-transform: uppercase; color: #666;">E-Wallet:</span>
-                        <div style="font-size: 1.2rem; font-weight: 700;">{{ $donasi->channel_nama ?? 'E-Wallet' }}</div>
-                        <div style="font-size: 1.1rem; margin: 4px 0;">Nomor Tujuan: <b>{{ $donasi->channel_info ?? config('upz.site.wa') }}</b></div>
-                    </div>
-                @elseif ($donasi->metode === 'qris')
-                    <div style="text-align: center; padding: 12px;">
-                        <p>Silakan scan QRIS resmi UPZ BAZNAS Petrokimia Gresik:</p>
-                        <div style="display: inline-block; background: #fff; padding: 12px; border: 1px solid #ccc; border-radius: 8px;">
-                            <img src="{{ asset('img/maskot.svg') }}" width="180" height="180" alt="QRIS UPZ">
-                        </div>
-                    </div>
-                @else
-                    <div style="background: #f4f6f0; padding: 12px; border-radius: 8px;">
-                        <b>Pembayaran Tunai:</b>
-                        <p style="margin: 4px 0;">Silakan datang langsung ke kantor {{ config('upz.site.lengkap') }} di {{ config('upz.site.alamat') }} dengan membawa kode referensi <b>{{ $donasi->kode }}</b>.</p>
-                    </div>
-                @endif
-            </div>
-
-            <h2><span class="tg">Unggah Bukti Transfer</span></h2>
-            <form method="POST" action="{{ route('donasi.uploadBukti', $donasi->kode) }}" enctype="multipart/form-data">
-                @csrf
-                <p>Setelah melakukan transfer, silakan unggah foto atau tangkapan layar bukti transfer agar petugas dapat memverifikasi:</p>
-
-                <label for="bukti">Berkas Bukti (JPG, PNG, atau WebP, maks 4MB)</label>
-                <input id="bukti" type="file" name="bukti" accept="image/jpeg,image/png,image/webp" required style="padding: 10px; margin-bottom: 14px;">
-
-                @if ($donasi->bukti)
-                    <div style="margin: 12px 0;">
-                        <p style="font-size: 0.9rem; margin-bottom: 6px;">Bukti yang sudah diunggah saat ini:</p>
-                        <img src="{{ route('donasi.bukti', $donasi->kode) }}" alt="Bukti Transfer" style="max-width: 200px; border-radius: 8px; border: 1px solid #ccc;">
-                    </div>
-                @endif
-
-                <button class="btn" type="submit" style="width: 100%;">
-                    {{ $donasi->bukti ? 'Perbarui Bukti Pembayaran' : 'Saya Sudah Bayar & Unggah Bukti' }}
-                </button>
-            </form>
-
-            @if ($donasi->status === 'menunggu')
-                <form method="POST" action="{{ route('donasi.batal', $donasi->kode) }}" style="margin-top: 16px;" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan donasi ini?');">
-                    @csrf
-                    <button type="submit" class="lnk del" style="background: none; border: none; color: #dc2626; cursor: pointer; text-decoration: underline; font: inherit;">
-                        Batalkan Donasi Ini
-                    </button>
-                </form>
-            @endif
-        @else
-            <h2><span class="tg">Bukti Pembayaran</span></h2>
-            @if ($donasi->bukti)
-                <div style="margin: 16px 0;">
-                    <img src="{{ route('donasi.bukti', $donasi->kode) }}" alt="Bukti Pembayaran" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #ccc;">
-                </div>
-            @endif
-            <p>Donasi ini telah diproses dengan status: <b>{{ ucfirst($donasi->status) }}</b>.</p>
-            <a class="btn" href="{{ route('donasi.cetak', $donasi->kode) }}" target="_blank">Cetak Kuitansi Resmi</a>
-        @endif
+    <small class="bantu">Zakat penghasilan umumnya 2,5% dari penghasilan yang mencapai nisab. Cek nisab terbaru di BAZNAS.</small>
+    @endif
+    <label for="jumlah">Nominal (Rp)</label>
+    <input id="jumlah" type="number" name="jumlah" min="{{ $minimal }}" max="{{ $maksimal }}" step="1" inputmode="numeric" value="{{ $isi['jumlah'] }}" placeholder="Minimal {{ number_format($minimal, 0, ',', '.') }}" required>
+    <div class="chips" aria-label="Pilihan nominal cepat">
+     @foreach ([25000, 50000, 100000, 250000, 500000] as $n)
+     <button class="pill" type="button" data-isi="{{ $n }}" data-target="jumlah">{{ rupiah($n) }}</button>
+     @endforeach
     </div>
+  @endif
+
+  @if ($samarkanKiri)
+  <fieldset class="tampil-nama">
+   <legend>Nama saya di beranda dan kas</legend>
+   <div class="pilih-bank">
+    <label class="bank"><input type="radio" name="tampil_nama" value="lengkap" {{ $isi['tampil_nama'] === 'lengkap' ? 'checked' : '' }}><span>Nama lengkap</span></label>
+    <label class="bank"><input type="radio" name="tampil_nama" value="singkat" {{ $isi['tampil_nama'] === 'singkat' ? 'checked' : '' }}><span>Disingkat: {{ nama_singkat($isi['nama'] ?: 'Nama Anda') }}</span></label>
+    <label class="bank"><input type="radio" name="tampil_nama" value="anonim" {{ $isi['tampil_nama'] === 'anonim' ? 'checked' : '' }}><span>Hamba Allah</span></label>
+   </div>
+   <small class="bantu">Hamba Allah juga menyamarkan nama di pembukuan kas. Nama disingkat hanya berlaku di beranda. Pengurus tetap melihat data asli untuk verifikasi, dan pilihan ini bisa diubah nanti di halaman detail donasi.</small>
+  </fieldset>
+  @endif
+
+  @if ($catatanKiri)
+  <label for="catatan">Catatan (opsional)</label>
+  <textarea id="catatan" name="catatan" rows="3" maxlength="500" placeholder="Mis. niat donasi atau pesan untuk pengurus">{{ $isi['catatan'] }}</textarea>
+  @endif
+  </div>
+
+  <div class="kol">
+  @if (!$nominalKiri)
+  <span class="lbl">Nominal paket</span>
+  <div class="nominal-tetap"><b>{{ rupiah($nominalTetap) }}</b></div>
+  @endif
+
+  @include('donasi.partials.pilih_metode')
+
+  @if (!$samarkanKiri)
+  <fieldset class="tampil-nama">
+   <legend>Nama saya di beranda dan kas</legend>
+   <div class="pilih-bank">
+    <label class="bank"><input type="radio" name="tampil_nama" value="lengkap" {{ $isi['tampil_nama'] === 'lengkap' ? 'checked' : '' }}><span>Nama lengkap</span></label>
+    <label class="bank"><input type="radio" name="tampil_nama" value="singkat" {{ $isi['tampil_nama'] === 'singkat' ? 'checked' : '' }}><span>Disingkat: {{ nama_singkat($isi['nama'] ?: 'Nama Anda') }}</span></label>
+    <label class="bank"><input type="radio" name="tampil_nama" value="anonim" {{ $isi['tampil_nama'] === 'anonim' ? 'checked' : '' }}><span>Hamba Allah</span></label>
+   </div>
+   <small class="bantu">Hamba Allah juga menyamarkan nama di pembukuan kas. Nama disingkat hanya berlaku di beranda. Pengurus tetap melihat data asli untuk verifikasi, dan pilihan ini bisa diubah nanti di halaman detail donasi.</small>
+  </fieldset>
+  @endif
+
+  @if (!$catatanKiri)
+  <label for="catatan">Catatan (opsional)</label>
+  <textarea id="catatan" name="catatan" rows="3" maxlength="500" placeholder="Mis. niat donasi atau pesan untuk pengurus">{{ $isi['catatan'] }}</textarea>
+  @endif
+  </div>
+  </div>
+
+  <div class="dua izin">
+  <label class="cek"><input type="checkbox" name="tampil_beranda" value="1" {{ $isi['tampil_beranda'] === '1' ? 'checked' : '' }}><span>Tampilkan donasi saya di daftar Donatur terbaru di beranda setelah dikonfirmasi (hanya nama, program, dan waktu).</span></label>
+  <label class="cek"><input type="checkbox" name="tampil_doa" value="1" {{ $isi['tampil_doa'] === '1' ? 'checked' : '' }}><span>Sertakan catatan saya sebagai doa di beranda. Jangan menulis data pribadi.</span></label>
+  </div>
+
+  <button class="btn" type="submit">Kirim donasi</button>
+  <small class="bantu">Donasi tercatat di kas UPZ setelah pembayaran Anda dicek dan dikonfirmasi pengurus.</small>
+ </form>
 </section>
 @endsection

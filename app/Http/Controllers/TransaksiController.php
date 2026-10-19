@@ -84,56 +84,67 @@ class TransaksiController extends Controller
 
     public function export(Request $request)
     {
-        $transaksi = Transaksi::with(['kategori', 'pembuat'])
-            ->latest('tanggal')
-            ->get();
+        $cari = trim((string)$request->query('cari', ''));
+        $mulai = (string)$request->query('tgl_mulai', '');
+        $selesai = (string)$request->query('tgl_selesai', '');
+        $tipe = (string)$request->query('tipe', 'semua');
+        $kategori = (int)$request->query('kategori', 0);
 
-        $fileName = 'Laporan_Kas_UPZ_BAZNAS_' . date('Ymd_His') . '.csv';
+        $query = Transaksi::with(['kategori', 'pembuat'])
+            ->whereNull('dibatalkan_at')
+            ->orderBy('tanggal', 'asc')
+            ->orderBy('id', 'asc');
+
+        if (in_array($tipe, ['masuk', 'keluar'], true)) {
+            $query->where('tipe', $tipe);
+        }
+        if ($kategori > 0) {
+            $query->where('kategori_id', $kategori);
+        }
+        if ($mulai !== '') {
+            $query->whereDate('tanggal', '>=', $mulai);
+        }
+        if ($selesai !== '') {
+            $query->whereDate('tanggal', '<=', $selesai);
+        }
+        if ($cari !== '') {
+            $query->where(function ($q) use ($cari) {
+                $q->where('nama_pihak', 'like', "%{$cari}%")
+                  ->orWhere('keterangan', 'like', "%{$cari}%");
+            });
+        }
+
+        $daftar = $query->get();
+
+        if ($mulai !== '' && $selesai !== '') {
+            $periode = date('d/m/Y', strtotime($mulai)) . ' s.d. ' . date('d/m/Y', strtotime($selesai));
+        } elseif ($mulai !== '') {
+            $periode = 'Mulai ' . date('d/m/Y', strtotime($mulai));
+        } elseif ($selesai !== '') {
+            $periode = 'Sampai ' . date('d/m/Y', strtotime($selesai));
+        } else {
+            $periode = 'Semua transaksi';
+        }
+
+        $totalMasukSemua = Transaksi::aktif()->masuk()->sum('jumlah');
+        $totalKeluarSemua = Transaksi::aktif()->keluar()->sum('jumlah');
+        $saldoTotal = $totalMasukSemua - $totalKeluarSemua;
+
+        $fileName = 'Laporan_Keuangan_UPZ_' . date('Ymd_His') . '.xls';
 
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',
             'Content-Disposition' => "attachment; filename=\"$fileName\"",
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+            'Cache-Control' => 'max-age=0',
         ];
 
-        $callback = function () use ($transaksi) {
-            $file = fopen('php://output', 'w');
-            // Menulis BOM UTF-8 agar Excel membuka dengan encoding yang benar
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+        $html = view('dashboard.export_excel', [
+            'daftar' => $daftar,
+            'periode' => $periode,
+            'saldoTotal' => $saldoTotal,
+            'petugas' => Auth::user(),
+        ])->render();
 
-            fputcsv($file, [
-                'ID Transaksi',
-                'Tanggal',
-                'Jenis',
-                'Kategori',
-                'Pihak Terkait',
-                'Jumlah (Rp)',
-                'Keterangan',
-                'Status',
-                'Alasan Batal',
-                'Petugas Pencatat',
-            ]);
-
-            foreach ($transaksi as $t) {
-                fputcsv($file, [
-                    $t->id,
-                    $t->tanggal ? $t->tanggal->format('d/m/Y H:i') : '-',
-                    strtoupper($t->tipe),
-                    $t->kategori?->nama ?? '-',
-                    $t->nama_pihak ?? '-',
-                    $t->jumlah,
-                    $t->keterangan ?? '-',
-                    $t->isBatal() ? 'Dibatalkan (Void)' : 'Sah / Aktif',
-                    $t->alasan_batal ?? '-',
-                    $t->pembuat?->name ?? 'Sistem',
-                ]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return response($html, 200, $headers);
     }
 }

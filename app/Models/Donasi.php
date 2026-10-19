@@ -20,6 +20,7 @@ class Donasi extends Model
         'kategori_kode',
         'nama',
         'samarkan_nama',
+        'nama_singkat',
         'nip',
         'kontak',
         'email',
@@ -39,14 +40,17 @@ class Donasi extends Model
         'dibatalkan_at',
         'tampil_beranda',
         'tampil_doa',
+        'beranda_blokir',
     ];
 
     protected function casts(): array
     {
         return [
             'samarkan_nama' => 'boolean',
+            'nama_singkat' => 'boolean',
             'tampil_beranda' => 'boolean',
             'tampil_doa' => 'boolean',
+            'beranda_blokir' => 'boolean',
             'jumlah' => 'decimal:2',
             'dibayar_at' => 'datetime',
             'diproses_at' => 'datetime',
@@ -87,13 +91,17 @@ class Donasi extends Model
     public function scopeTampilBeranda($query)
     {
         return $query->where('status', 'diterima')
-                     ->where('tampil_beranda', true);
+                     ->where('tampil_beranda', true)
+                     ->where('beranda_blokir', false);
     }
 
     public function getNamaTampilAttribute(): string
     {
         if ($this->samarkan_nama) {
             return 'Hamba Allah';
+        }
+        if ($this->nama_singkat) {
+            return nama_singkat((string)$this->nama);
         }
         return $this->nama ?: 'Hamba Allah';
     }

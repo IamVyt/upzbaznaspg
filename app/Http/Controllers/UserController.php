@@ -7,75 +7,150 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::whereIn('role', ['admin', 'bendahara', 'ketua'])
-            ->latest()
-            ->paginate(15);
+        $cari = trim((string)$request->query('cari', ''));
 
-        return view('users.index', compact('users'));
+        $query = User::query()->orderBy('id', 'desc');
+
+        if ($cari !== '') {
+            $query->where(function ($q) use ($cari) {
+                $q->where('name', 'like', "%{$cari}%")
+                  ->orWhere('username', 'like', "%{$cari}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+        $baris = $query->paginate(10)->withQueryString();
+
+        $peran = [
+            'admin'     => 'Admin',
+            'bendahara' => 'Bendahara',
+            'ketua'     => 'Ketua',
+            'user'      => 'User (donatur)',
+        ];
+
+        $bisaUbah = Auth::user()->isAdmin();
+
+        return view('users.index', compact('baris', 'total', 'cari', 'peran', 'bisaUbah'));
+    }
+
+    public function proses(Request $request)
+    {
+        if (!Auth::user()->isAdmin()) {
+            return back()->with('danger', 'Anda tidak memiliki izin untuk mengubah data ini.');
+        }
+
+        $aksi = (string)$request->input('aksi', 'tambah');
+        $id   = (int)$request->input('id', 0);
+
+        if ($aksi === 'hapus') {
+            if ($id === (int)Auth::id()) {
+                return back()->with('danger', 'Akun yang sedang Anda pakai tidak bisa dihapus.');
+            }
+
+            $user = User::find($id);
+            if (!$user) {
+                return back()->with('danger', 'Data tidak ditemukan.');
+            }
+
+            $snapshot = $user->only(['name', 'username', 'role']);
+            $user->delete();
+
+            AuditLog::catat('hapus_users', 'users', $id, $snapshot, null);
+            return back()->with('success', 'Data berhasil dihapus.');
+        }
+
+        if (in_array($aksi, ['tambah', 'ubah'], true)) {
+            $name     = trim((string)$request->input('name'));
+            $username = trim((string)$request->input('username'));
+            $password = (string)$request->input('password');
+            $role     = (string)$request->input('role');
+
+            $peranList = ['admin', 'bendahara', 'ketua', 'user'];
+
+            if ($name === '') {
+                return back()->with('danger', 'Nama lengkap wajib diisi.');
+            }
+            if ($username === '') {
+                return back()->with('danger', 'Username wajib diisi.');
+            }
+            if (!in_array($role, $peranList, true)) {
+                return back()->with('danger', 'Peran tidak valid.');
+            }
+
+            // Validasi username unik
+            $userAda = User::whereRaw('LOWER(username) = ?', [strtolower($username)])
+                ->when($aksi === 'ubah', fn($q) => $q->where('id', '<>', $id))
+                ->first();
+            if ($userAda) {
+                return back()->with('danger', 'Data dengan username tersebut sudah ada.');
+            }
+
+            if ($aksi === 'tambah') {
+                if (strlen($password) < 8) {
+                    return back()->with('danger', 'Password minimal 8 karakter.');
+                }
+
+                $user = User::create([
+                    'name'     => $name,
+                    'username' => strtolower($username),
+                    'role'     => $role,
+                    'password' => Hash::make($password),
+                ]);
+
+                AuditLog::catat('tambah_users', 'users', $user->id, null, [
+                    'name'     => $name,
+                    'username' => $username,
+                    'role'     => $role,
+                ]);
+
+                return back()->with('success', 'Data baru berhasil disimpan.');
+            } else {
+                $user = User::find($id);
+                if (!$user) {
+                    return back()->with('danger', 'Data tidak ditemukan.');
+                }
+
+                $dataLama = $user->only(['name', 'username', 'role']);
+                $updateData = [
+                    'name'     => $name,
+                    'username' => strtolower($username),
+                    'role'     => $role,
+                ];
+
+                if ($password !== '') {
+                    if (strlen($password) < 8) {
+                        return back()->with('danger', 'Password minimal 8 karakter.');
+                    }
+                    $updateData['password'] = Hash::make($password);
+                }
+
+                $user->update($updateData);
+
+                AuditLog::catat('ubah_users', 'users', $user->id, $dataLama, [
+                    'name'     => $name,
+                    'username' => $username,
+                    'role'     => $role,
+                ]);
+
+                return back()->with('success', 'Perubahan berhasil disimpan.');
+            }
+        }
+
+        return back();
     }
 
     public function store(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
-            return back()->with('error', 'Hanya Administrator yang dapat menambahkan petugas.');
-        }
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
-            'email' => ['nullable', 'email', 'max:100', 'unique:users,email'],
-            'role' => ['required', 'in:admin,bendahara,ketua'],
-            'no_hp' => ['nullable', 'string', 'max:30'],
-            'nip' => ['nullable', 'string', 'max:30'],
-            'password' => ['required', Password::min(6)],
-        ], [
-            'name.required' => 'Nama lengkap wajib diisi.',
-            'username.required' => 'Username wajib diisi.',
-            'username.unique' => 'Username sudah digunakan.',
-            'role.required' => 'Peran akun wajib dipilih.',
-            'password.required' => 'Password wajib diisi.',
-        ]);
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'username' => strtolower($validated['username']),
-            'email' => $validated['email'],
-            'role' => $validated['role'],
-            'no_hp' => $validated['no_hp'],
-            'nip' => $validated['nip'],
-            'password' => Hash::make($validated['password']),
-        ]);
-
-        AuditLog::catat('tambah', 'users', $user->id, null, [
-            'username' => $user->username,
-            'role' => $user->role,
-        ]);
-
-        return back()->with('success', "Akun petugas {$user->name} ({$user->role}) berhasil ditambahkan.");
+        return $this->proses($request);
     }
 
     public function destroy($id)
     {
-        if (!Auth::user()->isAdmin()) {
-            return back()->with('error', 'Hanya Administrator yang dapat menghapus akun petugas.');
-        }
-
-        if ((int)$id === (int)Auth::id()) {
-            return back()->with('error', 'Anda tidak dapat menghapus akun Anda sendiri.');
-        }
-
-        $user = User::findOrFail($id);
-        $snapshot = $user->toArray();
-        $user->delete();
-
-        AuditLog::catat('hapus_users', 'users', $id, $snapshot, null);
-
-        return back()->with('success', "Akun pengguna {$user->name} berhasil dihapus.");
+        return $this->proses(new Request(['aksi' => 'hapus', 'id' => $id]));
     }
 }

@@ -4,85 +4,211 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Donasi;
+use App\Models\Transaksi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DataDonasiController extends Controller
 {
     public function index(Request $request)
     {
-        $q = $request->query('q');
-        $program = $request->query('program');
+        $cari = trim((string)$request->query('cari', ''));
+        $prog = trim((string)$request->query('program', ''));
 
-        $programs = config('upz.program');
+        $opsiProgram = [];
+        foreach (config('upz.program', []) as $p) {
+            $opsiProgram[$p['slug']] = $p['nama'];
+        }
+        if (!isset($opsiProgram[$prog])) {
+            $prog = '';
+        }
 
-        $query = Donasi::where('status', 'diterima')->latest();
+        $bolehHapus = Auth::user()->isAdmin();
 
-        if ($q) {
-            $query->where(function ($sub) use ($q) {
-                $sub->where('kode', 'like', "%{$q}%")
-                    ->orWhere('nama', 'like', "%{$q}%")
-                    ->orWhere('kontak', 'like', "%{$q}%")
-                    ->orWhere('email', 'like', "%{$q}%")
-                    ->orWhere('nip', 'like', "%{$q}%");
+        // Ringkasan semua donasi berhasil (tidak ikut terfilter)
+        $ring = [
+            'n' => Donasi::where('status', 'diterima')->count(),
+            'total' => Donasi::where('status', 'diterima')->sum('jumlah'),
+            'donatur' => Donasi::where('status', 'diterima')
+                ->distinct()
+                ->selectRaw("COALESCE(CONCAT('u', user_id), CONCAT('n', nama)) as d_id")
+                ->count('d_id'),
+        ];
+        $rata = $ring['n'] > 0 ? $ring['total'] / $ring['n'] : 0;
+
+        // Catatan kas yatim (transaksi online yang donasinya sudah dihapus)
+        $yatimQuery = Transaksi::where('tipe', 'masuk')
+            ->whereNull('dibatalkan_at')
+            ->where('keterangan', 'like', 'Donasi online %')
+            ->whereNotIn('id', Donasi::whereNotNull('transaksi_id')->pluck('transaksi_id'));
+
+        $yatimInfo = [
+            'n' => (clone $yatimQuery)->count(),
+            'total' => (clone $yatimQuery)->sum('jumlah'),
+        ];
+
+        // Query daftar donasi berhasil
+        $query = Donasi::with(['user', 'transaksi'])
+            ->where('status', 'diterima')
+            ->orderByRaw('COALESCE(diproses_at, dibuat_at) DESC')
+            ->orderBy('id', 'desc');
+
+        if ($prog !== '') {
+            $query->where('program', $prog);
+        }
+
+        if ($cari !== '') {
+            $query->where(function ($q) use ($cari) {
+                $q->where('nama', 'like', "%{$cari}%")
+                  ->orWhere('kode', 'like', "%{$cari}%")
+                  ->orWhere('kontak', 'like', "%{$cari}%")
+                  ->orWhere('email', 'like', "%{$cari}%")
+                  ->orWhere('nip', 'like', "%{$cari}%")
+                  ->orWhereHas('user', function ($uq) use ($cari) {
+                      $uq->where('username', 'like', "%{$cari}%");
+                  });
             });
         }
 
-        if ($program) {
-            $query->where('program', $program);
-        }
+        $jml = (clone $query)->count();
+        $daftar = $query->paginate(10)->withQueryString();
 
-        $donasiList = $query->paginate(20)->withQueryString();
-        $totalNominal = (clone $query)->sum('jumlah');
-        $totalDonasi = (clone $query)->count();
+        $metode = config('upz.metode_pembayaran', [
+            'qris'    => ['QRIS', 'i-qris'],
+            'bank'    => ['Transfer Bank', 'i-bank'],
+            'ewallet' => ['E-Wallet', 'i-wallet'],
+            'tunai'   => ['Tunai di Kantor', 'i-cash'],
+        ]);
 
         return view('data_donasi.index', compact(
-            'donasiList',
-            'programs',
-            'q',
-            'program',
-            'totalNominal',
-            'totalDonasi'
+            'daftar', 'ring', 'rata', 'yatimInfo', 'cari', 'prog', 'opsiProgram', 'jml', 'metode', 'bolehHapus'
         ));
+    }
+
+    public function proses(Request $request)
+    {
+        if (!Auth::user()->isAdmin()) {
+            return back()->with('danger', 'Hanya admin yang memiliki izin untuk memproses tindakan ini.');
+        }
+
+        $aksi = (string)$request->input('aksi');
+
+        if ($aksi === 'hapus') {
+            $id = (int)$request->input('id');
+            $d = Donasi::where('id', $id)->where('status', 'diterima')->first();
+            if (!$d) {
+                return back()->with('danger', 'Data donasi tidak ditemukan atau sudah dihapus.');
+            }
+
+            $batalKas = $request->boolean('batal_kas') && $d->transaksi_id;
+
+            DB::transaction(function () use ($d, $batalKas) {
+                if ($batalKas && $d->transaksi) {
+                    $d->transaksi->update([
+                        'dibatalkan_at' => now(),
+                        'alasan_batal' => 'Donasi ' . $d->kode . ' dihapus oleh admin',
+                    ]);
+                }
+                if ($d->bukti && Storage::disk('public')->exists($d->bukti)) {
+                    Storage::disk('public')->delete($d->bukti);
+                }
+                $d->delete();
+            });
+
+            AuditLog::catat('donasi_hapus', 'donasi', $id, [
+                'kode' => $d->kode, 'nama' => $d->nama, 'program' => $d->program_nama, 'paket' => $d->paket,
+                'jumlah' => $d->jumlah, 'metode' => $d->metode, 'user_id' => $d->user_id, 'transaksi_id' => $d->transaksi_id,
+                'kas_dibatalkan' => $batalKas ? 'ya' : 'tidak',
+            ]);
+
+            return back()->with('success', 'Donasi ' . $d->kode . ' atas nama ' . $d->nama . ' dihapus. '
+                . ($batalKas ? 'Catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
+        }
+
+        if ($aksi === 'beranda') {
+            $id = (int)$request->input('id');
+            $d = Donasi::where('id', $id)->where('status', 'diterima')->first();
+            if (!$d || !$d->tampil_beranda) {
+                return back()->with('danger', 'Donasi tidak ditemukan atau donatur tidak mengizinkan tampil di beranda.');
+            }
+
+            $blokir = $d->beranda_blokir ? false : true;
+            $d->update(['beranda_blokir' => $blokir]);
+
+            AuditLog::catat('donasi_beranda', 'donasi', $id, ['kode' => $d->kode, 'disembunyikan' => $d->beranda_blokir], ['kode' => $d->kode, 'disembunyikan' => $blokir]);
+            return back()->with('success', 'Donasi ' . $d->kode . ($blokir ? ' disembunyikan dari beranda.' : ' ditampilkan lagi di beranda.'));
+        }
+
+        if ($aksi === 'hapus_semua') {
+            $daftarHapus = Donasi::where('status', 'diterima')->get();
+            if ($daftarHapus->isEmpty()) {
+                return back()->with('info', 'Tidak ada data donasi yang bisa dihapus.');
+            }
+
+            $batalKas = $request->boolean('batal_kas');
+            $trxIds = $batalKas
+                ? $daftarHapus->pluck('transaksi_id')->filter()->unique()->all()
+                : [];
+
+            DB::transaction(function () use ($daftarHapus, $trxIds) {
+                if (!empty($trxIds)) {
+                    Transaksi::whereIn('id', $trxIds)
+                        ->whereNull('dibatalkan_at')
+                        ->update([
+                            'dibatalkan_at' => now(),
+                            'alasan_batal' => 'Semua data donasi dihapus oleh admin',
+                        ]);
+                }
+                foreach ($daftarHapus as $d) {
+                    if ($d->bukti && Storage::disk('public')->exists($d->bukti)) {
+                        Storage::disk('public')->delete($d->bukti);
+                    }
+                    $d->delete();
+                }
+            });
+
+            AuditLog::catat('donasi_hapus_semua', 'donasi', null, null, [
+                'jumlah_donasi' => $daftarHapus->count(),
+                'total_nominal' => $daftarHapus->sum('jumlah'),
+                'kas_dibatalkan' => count($trxIds),
+            ]);
+
+            return back()->with('success', $daftarHapus->count() . ' data donasi dihapus, termasuk dari Donasi masuk. '
+                . ($batalKas ? count($trxIds) . ' catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
+        }
+
+        if ($aksi === 'batalkan_yatim') {
+            $yatimIds = Transaksi::where('tipe', 'masuk')
+                ->whereNull('dibatalkan_at')
+                ->where('keterangan', 'like', 'Donasi online %')
+                ->whereNotIn('id', Donasi::whereNotNull('transaksi_id')->pluck('transaksi_id'))
+                ->pluck('id')
+                ->all();
+
+            if (!empty($yatimIds)) {
+                Transaksi::whereIn('id', $yatimIds)->update([
+                    'dibatalkan_at' => now(),
+                    'alasan_batal' => 'Dibatalkan massal oleh admin karena data donasi asalnya sudah dihapus',
+                ]);
+                AuditLog::catat('yatim_batal', 'transaksi', null, null, ['jumlah' => count($yatimIds)]);
+                return back()->with('success', count($yatimIds) . ' catatan kas dibatalkan (void).');
+            }
+
+            return back()->with('info', 'Tidak ada catatan kas yatim yang perlu dibatalkan.');
+        }
+
+        return back();
     }
 
     public function destroy($id)
     {
-        if (!Auth::user()->isAdmin()) {
-            return back()->with('error', 'Hanya Admin yang memiliki hak menghapus data donasi.');
-        }
-
-        $donasi = Donasi::findOrFail($id);
-        $snapshot = $donasi->toArray();
-
-        $donasi->delete();
-
-        AuditLog::catat('donasi_hapus', 'donasi', $id, $snapshot, null);
-
-        return back()->with('success', "Data donasi {$donasi->kode} berhasil dihapus dari sistem.");
+        return $this->proses(new Request(['aksi' => 'hapus', 'id' => $id]));
     }
 
     public function destroyAll(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
-            return back()->with('error', 'Hanya Admin yang memiliki hak menghapus data donasi.');
-        }
-
-        $filterProgram = $request->input('program');
-        $query = Donasi::where('status', 'diterima');
-
-        if ($filterProgram) {
-            $query->where('program', $filterProgram);
-        }
-
-        $count = $query->count();
-        $query->delete();
-
-        AuditLog::catat('donasi_hapus_semua', 'donasi', null, null, [
-            'jumlah_dihapus' => $count,
-            'filter_program' => $filterProgram ?: 'semua',
-        ]);
-
-        return back()->with('success', "Sebanyak {$count} data donasi berhasil dihapus.");
+        return $this->proses(new Request(['aksi' => 'hapus_semua', 'batal_kas' => $request->boolean('batal_kas')]));
     }
 }

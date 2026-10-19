@@ -1,81 +1,139 @@
 @extends('layouts.app')
 
-@section('title', 'Data Penyaluran Program')
+@section('title', 'Data penyaluran')
 
 @section('content')
 <section class="top">
-    <div class="head">
-        <h1 class="tag">Data Penyaluran</h1>
-        <p>Ringkasan realisasi donasi yang telah berhasil disalurkan melalui program-program UPZ BAZNAS Petrokimia Gresik.</p>
-    </div>
+ <div class="head">
+  <h1 class="tag">Data penyaluran</h1>
+  <p>Ringkasan donasi yang sudah tersalurkan untuk tiap jenis penyaluran. Klik Lihat riwayat untuk mengetahui siapa yang berdonasi dan donasi apa.</p>
+ </div>
 
-    <div class="grid3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 1.5rem;">
-        @foreach ($rekapProgram as $rp)
-            <div class="c {{ $rp['warna'] }}" style="padding: 20px; border-radius: 14px; border: 2px solid var(--ink, #191A23); box-shadow: 0 4px 0 #191A23;">
-                <h3 style="margin: 0 0 8px 0; font-size: 1.25rem;">{{ $rp['nama'] }}</h3>
-                <b style="font-size: 1.4rem; display: block; margin-bottom: 6px;">{{ format_rupiah($rp['total_donasi']) }}</b>
-                <small style="display: block; opacity: 0.85;">Dari {{ $rp['jumlah_donatur'] }} donasi tersalurkan</small>
-            </div>
-        @endforeach
-    </div>
+ <div class="grid4">
+  <div class="c g stat">
+   <small>Total donasi tersalurkan</small>
+   <b>{{ rupiah($totRp) }}</b>
+   <small>Sudah dikonfirmasi petugas</small>
+  </div>
+  <div class="c l stat">
+   <small>Jumlah donasi</small>
+   <b>{{ $totN }} donasi</b>
+   <small>Berstatus sudah tersalurkan</small>
+  </div>
+  <div class="c l stat">
+   <small>Jumlah donatur</small>
+   <b>{{ $totDonatur }} orang</b>
+   <small>Donatur berbeda</small>
+  </div>
+  <div class="c d stat">
+   <small>Masih diproses</small>
+   <b>{{ $totProses }} donasi</b>
+   <small>Menunggu bayar atau dicek</small>
+  </div>
+ </div>
 
-    <div class="card" style="margin-top: 2rem;">
-        <h2 class="sub">Riwayat Penyaluran Donasi Terkonfirmasi</h2>
-        <div class="scroll">
-            <table class="tbl">
-                <thead>
-                    <tr>
-                        <th>Tanggal Terima</th>
-                        <th>Donatur</th>
-                        <th>Program & Paket</th>
-                        <th>Nominal</th>
-                        <th>Kanal Pembayaran</th>
-                        <th class="r">Kuitansi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($riwayatPenyaluran as $d)
-                        <tr>
-                            <td class="nw">
-                                {{ $d->diproses_at ? $d->diproses_at->format('d/m/Y H:i') : $d->updated_at->format('d/m/Y H:i') }}
-                            </td>
-                            <td>
-                                <b>{{ $d->nama_tampil }}</b>
-                                @if ($d->samarkan_nama)
-                                    <i class="cat" style="font-size: 0.75rem;">(Hamba Allah)</i>
-                                @endif
-                                <small style="display: block; color: #555;">{{ $d->kontak }}</small>
-                            </td>
-                            <td>
-                                <b>{{ $d->program_nama }}</b><br>
-                                <small>{{ $d->paket }} ({{ $d->kode }})</small>
-                            </td>
-                            <td class="nw" style="font-weight: 700; color: #15803d;">
-                                {{ format_rupiah($d->jumlah) }}
-                            </td>
-                            <td>
-                                {{ strtoupper($d->metode) }} {{ $d->channel_nama ? '- ' . $d->channel_nama : '' }}
-                            </td>
-                            <td class="r nw">
-                                <a class="btn o sm" href="{{ route('donasi.cetak', $d->kode) }}" target="_blank">
-                                    Cetak Kuitansi ↗
-                                </a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" style="text-align: center; padding: 24px;">
-                                Belum ada donasi yang disalurkan.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <div style="margin-top: 1rem;">
-            {{ $riwayatPenyaluran->links() }}
-        </div>
-    </div>
+ <div class="card" style="margin-top:1.6rem">
+  <h2 class="sub">Daftar data <small>{{ count($baris) }} jenis penyaluran</small></h2>
+  <div class="scroll">
+   <table class="tbl">
+    <thead>
+     <tr>
+      <th>No</th>
+      <th>Jenis penyaluran</th>
+      <th>Riwayat</th>
+      <th>Keterangan</th>
+      <th class="r">Total donasi</th>
+      <th class="r">Aksi</th>
+     </tr>
+    </thead>
+    <tbody>
+    @if (empty($baris))
+     <tr>
+      <td colspan="6">
+       <div class="empty">
+        <b>Belum ada data</b>
+        <p>Daftar program belum tersedia.</p>
+       </div>
+      </td>
+     </tr>
+    @endif
+    @foreach ($baris as $i => $r)
+     @php
+       $n = (int)($r['n'] ?? 0);
+       $terakhir = !empty($r['terakhir']) ? \Carbon\Carbon::parse($r['terakhir'])->format('d/m/Y') : '';
+     @endphp
+     <tr>
+      <td>{{ $i + 1 }}</td>
+      <td><b>{{ $r['nama'] }}</b></td>
+      <td class="nw">
+       @if ($n > 0)
+        <b>{{ $n }} donasi</b>
+        <small>{{ (int)($r['donatur'] ?? 0) }} donatur{{ $terakhir ? ', terakhir ' . $terakhir : '' }}</small>
+       @else
+        Belum ada donasi
+       @endif
+       @if ((int)($r['proses'] ?? 0) > 0)
+        <small>{{ (int)$r['proses'] }} masih diproses</small>
+       @endif
+      </td>
+      <td><span class="meta"><small title="{{ $r['ket'] }}">{{ $r['ket'] }}</small></span></td>
+      <td class="r nw"><b>{{ rupiah($r['total'] ?? 0) }}</b></td>
+      <td class="r nw">
+       <button class="lnk" type="button" data-dialog="rw-{{ $i }}" {{ $n === 0 ? 'disabled' : '' }}>Lihat riwayat</button>
+      </td>
+     </tr>
+    @endforeach
+    </tbody>
+   </table>
+  </div>
+ </div>
 </section>
+
+@foreach ($baris as $i => $r)
+ @php $daftar = $riwayat[$r['slug']] ?? []; @endphp
+ @if (empty($daftar)) @continue @endif
+ <dialog class="dlg lebar" id="rw-{{ $i }}" aria-labelledby="rw-j{{ $i }}">
+  <div class="dbox">
+   <button class="x" type="button" data-close aria-label="Tutup">×</button>
+   <h3 id="rw-j{{ $i }}"><span>{{ $r['nama'] }}</span></h3>
+   <p>{{ (int)($r['n'] ?? 0) }} donasi dari {{ (int)($r['donatur'] ?? 0) }} donatur, total <b>{{ rupiah($r['total'] ?? 0) }}</b>.{{ (int)($r['n'] ?? 0) > count($daftar) ? ' Menampilkan ' . count($daftar) . ' donasi terbaru.' : '' }}</p>
+   <div class="scroll">
+    <table class="tbl">
+     <thead>
+      <tr>
+       <th>Tanggal</th>
+       <th>Donatur</th>
+       <th>Donasi apa</th>
+       <th class="r">Nominal</th>
+      </tr>
+     </thead>
+     <tbody>
+     @foreach ($daftar as $d)
+      @php
+        $waktu = $d->diproses_at ? \Carbon\Carbon::parse($d->diproses_at) : ($d->dibuat_at ? \Carbon\Carbon::parse($d->dibuat_at) : $d->created_at);
+        $metodeConfig = config('upz.metode_pembayaran', []);
+        $metodeNama = $metodeConfig[$d->metode][0] ?? strtoupper($d->metode);
+      @endphp
+      <tr>
+       <td class="nw">{{ $waktu->format('d/m/Y') }}</td>
+       <td>
+        <b>{{ $d->nama }}</b>@if ($d->samarkan_nama) <i class="cat">disamarkan</i>@endif
+        <small>{{ $d->user ? '@' . $d->user->username : 'Tanpa akun' }}, {{ $d->kode }}</small>
+       </td>
+       <td>
+        {{ $d->paket }}
+        <small>{{ $metodeNama }}</small>
+       </td>
+       <td class="r nw"><b>{{ rupiah($d->jumlah) }}</b></td>
+      </tr>
+     @endforeach
+     </tbody>
+    </table>
+   </div>
+   <div class="acts end">
+    <button class="btn o" type="button" data-close>Tutup</button>
+   </div>
+  </div>
+ </dialog>
+@endforeach
 @endsection

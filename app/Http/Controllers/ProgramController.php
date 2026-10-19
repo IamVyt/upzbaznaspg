@@ -10,26 +10,23 @@ class ProgramController extends Controller
 {
     public function index()
     {
-        $programs = config('upz.program');
-        $penyaluran = config('upz.penyaluran');
+        $programs = config('upz.program', []);
+        $penyaluran = config('upz.penyaluran', []);
 
-        $kategoriDana = KategoriDana::orderBy('tipe')->orderBy('nama')->get();
-
-        $programStats = [];
-        foreach ($programs as $prog) {
-            $slug = $prog['slug'];
-            $totalDana = Donasi::where('status', 'diterima')->where('program', $slug)->sum('jumlah');
-            $countDonatur = Donasi::where('status', 'diterima')->where('program', $slug)->count();
-
-            $programStats[] = [
-                'program' => $prog,
-                'paket' => $penyaluran[$slug]['paket'] ?? [],
-                'kategori' => $penyaluran[$slug]['kategori'] ?? '-',
-                'total_dana' => $totalDana,
-                'count_donatur' => $countDonatur,
-            ];
+        $kat = [];
+        foreach (KategoriDana::where('tipe', 'masuk')->where('aktif', true)->get() as $k) {
+            $kat[$k->kode] = $k->nama;
         }
 
-        return view('program.index', compact('programStats', 'kategoriDana'));
+        $stat = [];
+        $queryStat = Donasi::where('status', 'diterima')
+            ->selectRaw('program, COUNT(*) as n, COALESCE(SUM(jumlah), 0) as total')
+            ->groupBy('program')
+            ->get();
+        foreach ($queryStat as $r) {
+            $stat[$r->program] = $r->toArray();
+        }
+
+        return view('program.index', compact('programs', 'penyaluran', 'kat', 'stat'));
     }
 }

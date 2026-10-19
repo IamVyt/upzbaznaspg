@@ -38,6 +38,12 @@ class AuthController extends Controller
                 'role' => Auth::user()->role,
             ]);
 
+            $tujuan = session('tujuan');
+            session()->forget('tujuan');
+            if ($tujuan) {
+                return redirect($tujuan)->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
+            }
+
             if (Auth::user()->isStaff()) {
                 return redirect()->intended(route('dashboard'))->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
             }
@@ -95,6 +101,12 @@ class AuthController extends Controller
             'username' => $user->username,
             'name' => $user->name,
         ]);
+
+        $tujuan = session('tujuan');
+        session()->forget('tujuan');
+        if ($tujuan) {
+            return redirect($tujuan)->with('success', 'Pendaftaran berhasil. Selamat datang, ' . $user->name . '!');
+        }
 
         return redirect()->route('home')->with('success', 'Pendaftaran akun berhasil! Selamat datang di layanan UPZ BAZNAS Petrokimia Gresik.');
     }

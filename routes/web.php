@@ -24,11 +24,21 @@ use Illuminate\Support\Facades\Route;
 // --- Portal Publik ---
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-Route::get('/salurkan', [DonasiController::class, 'create'])->name('donasi.create');
-Route::post('/salurkan', [DonasiController::class, 'store'])->name('donasi.store');
+// Langkah 1: Pilih Paket
+Route::get('/salurkan', [DonasiController::class, 'salurkan'])->name('donasi.create');
+
+// Langkah 2: Isi Data
+Route::get('/bayar', [DonasiController::class, 'bayarForm'])->name('donasi.bayarForm');
+Route::post('/bayar', [DonasiController::class, 'prosesBayar'])->name('donasi.prosesBayar');
+
+// Langkah 3: Detail, Instruksi Bayar, dan Bukti Donasi
 Route::get('/donasi/sukses/{kode}', [DonasiController::class, 'sukses'])->name('donasi.sukses');
-Route::get('/donasi/bayar/{kode}', [DonasiController::class, 'bayar'])->name('donasi.bayar');
-Route::post('/donasi/bayar/{kode}', [DonasiController::class, 'uploadBukti'])->name('donasi.uploadBukti');
+Route::get('/donasi/bayar/{kode}', fn($kode) => redirect()->route('donasi.sukses', $kode))->name('donasi.bayar');
+
+// Aksi Donatur (ganti metode, lapor bayar, ubah tampilan beranda, batalkan)
+Route::post('/donasi/lapor-bayar/{kode}', [DonasiController::class, 'uploadBukti'])->name('donasi.laporBayar');
+Route::post('/donasi/ganti-metode/{kode}', [DonasiController::class, 'gantiMetode'])->name('donasi.gantiMetode');
+Route::post('/donasi/ubah-tampilan/{kode}', [DonasiController::class, 'ubahTampilan'])->name('donasi.ubahTampilan');
 Route::post('/donasi/batal/{kode}', [DonasiController::class, 'batal'])->name('donasi.batal');
 Route::get('/donasi/cetak/{kode}', [DonasiController::class, 'cetak'])->name('donasi.cetak');
 Route::get('/bukti/{kode}', [DonasiController::class, 'showBukti'])->name('donasi.bukti');
@@ -55,14 +65,17 @@ Route::middleware('auth')->group(function () {
 // --- Back-Office Petugas (Admin, Bendahara, Ketua) ---
 Route::middleware(['auth', 'staff'])->prefix('admin')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dashboard', [DashboardController::class, 'proses'])->name('dashboard.proses');
 
     // Donasi Masuk
     Route::get('/donasi-masuk', [DonasiMasukController::class, 'index'])->name('donasi_masuk.index');
+    Route::post('/donasi-masuk', [DonasiMasukController::class, 'proses'])->name('donasi_masuk.proses');
     Route::post('/donasi-masuk/{id}/konfirmasi', [DonasiMasukController::class, 'konfirmasi'])->name('donasi_masuk.konfirmasi');
     Route::post('/donasi-masuk/{id}/tolak', [DonasiMasukController::class, 'tolak'])->name('donasi_masuk.tolak');
 
     // Data Donasi Tersalurkan
     Route::get('/data-donasi', [DataDonasiController::class, 'index'])->name('data_donasi.index');
+    Route::post('/data-donasi', [DataDonasiController::class, 'proses'])->name('data_donasi.proses');
     Route::delete('/data-donasi/{id}', [DataDonasiController::class, 'destroy'])->name('data_donasi.destroy');
     Route::post('/data-donasi/hapus-semua', [DataDonasiController::class, 'destroyAll'])->name('data_donasi.destroyAll');
 
@@ -79,6 +92,7 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->group(function () {
 
     // Pengaturan Metode Pembayaran
     Route::get('/pembayaran', [RekeningBayarController::class, 'index'])->name('pembayaran.index');
+    Route::post('/pembayaran', [RekeningBayarController::class, 'proses'])->name('pembayaran.proses');
     Route::put('/pembayaran', [RekeningBayarController::class, 'update'])->name('pembayaran.update');
 
     // Riwayat Aktivitas (Audit Log)

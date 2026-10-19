@@ -10,54 +10,94 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
-        $aksi = $request->query('aksi');
-        $q = $request->query('q');
+        $cari = trim((string)$request->query('cari', ''));
+        $aksi = trim((string)$request->query('aksi', ''));
 
-        $query = AuditLog::with('user')->latest('waktu');
+        $rentangLog = [
+            'minggu' => ['1 minggu terakhir', now()->subDays(7)],
+            'bulan'  => ['1 bulan terakhir', now()->subMonth()],
+            'semua'  => ['semua riwayat', null],
+        ];
 
-        if ($aksi) {
-            $query->where('aksi', $aksi);
+        $hitung = [
+            'semua'  => AuditLog::count(),
+            'minggu' => AuditLog::where('waktu', '>=', now()->subDays(7))->count(),
+            'bulan'  => AuditLog::where('waktu', '>=', now()->subMonth())->count(),
+        ];
+
+        $pesanHapus = [
+            'minggu' => 'Hapus ' . (int)$hitung['minggu'] . ' catatan aktivitas dalam 7 hari terakhir? Tindakan ini tidak bisa dibatalkan.',
+            'bulan'  => 'Hapus ' . (int)$hitung['bulan'] . ' catatan aktivitas dalam 1 bulan terakhir? Tindakan ini tidak bisa dibatalkan.',
+            'semua'  => 'Hapus SEMUA ' . (int)$hitung['semua'] . ' catatan aktivitas, bukan hanya yang tampil di hasil pencarian? Tindakan ini tidak bisa dibatalkan.',
+        ];
+
+        $ringkasan = [
+            'semua'    => $hitung['semua'],
+            'hari_ini' => AuditLog::whereDate('waktu', today())->count(),
+            'aktif'    => AuditLog::where('waktu', '>=', now()->subDays(7))->distinct('username')->count('username'),
+        ];
+
+        $terbanyak = AuditLog::selectRaw('aksi, count(*) as n')
+            ->groupBy('aksi')
+            ->orderByDesc('n')
+            ->first();
+
+        $daftarAksi = [];
+        foreach (AuditLog::distinct()->pluck('aksi') as $a) {
+            $daftarAksi[$a] = audit_label_aksi($a);
         }
+        asort($daftarAksi);
 
-        if ($q) {
-            $query->where(function ($sub) use ($q) {
-                $sub->where('username', 'like', "%{$q}%")
-                    ->orWhere('ip', 'like', "%{$q}%")
-                    ->orWhere('tabel', 'like', "%{$q}%");
+        $query = AuditLog::with('user')->orderBy('id', 'desc');
+
+        if ($cari !== '') {
+            $query->where(function ($q) use ($cari) {
+                $q->where('username', 'like', "%{$cari}%")
+                  ->orWhere('tabel', 'like', "%{$cari}%")
+                  ->orWhere('ip', 'like', "%{$cari}%");
             });
         }
 
-        $logs = $query->paginate(25)->withQueryString();
-        $daftarAksi = AuditLog::select('aksi')->distinct()->pluck('aksi');
+        if ($aksi !== '') {
+            $query->where('aksi', $aksi);
+        }
 
-        return view('audit.index', compact('logs', 'daftarAksi', 'aksi', 'q'));
+        $total = (clone $query)->count();
+        $baris = $query->paginate(15)->withQueryString();
+
+        $qs = array_filter(['cari' => $cari, 'aksi' => $aksi]);
+
+        return view('audit.index', compact(
+            'baris', 'total', 'cari', 'aksi', 'daftarAksi', 'ringkasan', 'terbanyak',
+            'hitung', 'pesanHapus', 'rentangLog', 'qs'
+        ));
     }
 
     public function clear(Request $request)
     {
         if (!Auth::user()->isAdmin()) {
-            return back()->with('error', 'Hanya Administrator yang dapat membersihkan riwayat aktivitas.');
+            return back()->with('danger', 'Hanya administrator yang dapat membersihkan riwayat aktivitas.');
         }
 
-        $rentang = $request->input('rentang', '1minggu');
+        $rentang = (string)$request->input('rentang', 'semua');
         $query = AuditLog::query();
 
-        if ($rentang === '1minggu') {
-            $query->where('waktu', '<', now()->subWeek());
-        } elseif ($rentang === '1bulan') {
-            $query->where('waktu', '<', now()->subMonth());
-        } elseif ($rentang === 'semua') {
-            // hapus semua
+        $label = 'semua riwayat';
+        if ($rentang === 'minggu') {
+            $query->where('waktu', '>=', now()->subDays(7));
+            $label = '1 minggu terakhir';
+        } elseif ($rentang === 'bulan') {
+            $query->where('waktu', '>=', now()->subMonth());
+            $label = '1 bulan terakhir';
         }
 
-        $count = $query->count();
-        $query->delete();
+        $hapus = $query->delete();
 
-        AuditLog::catat('audit_hapus', 'audit_log', null, null, [
-            'rentang' => $rentang,
-            'jumlah_dihapus' => $count,
-        ]);
+        if ($hapus > 0) {
+            AuditLog::catat('audit_hapus', 'audit_log', null, null, ['rentang' => $label, 'dihapus' => $hapus]);
+            return back()->with('success', $hapus . ' catatan aktivitas dihapus (' . $label . ').');
+        }
 
-        return back()->with('success', "Sebanyak {$count} catatan riwayat aktivitas berhasil dibersihkan.");
+        return back()->with('info', 'Tidak ada catatan pada rentang tersebut.');
     }
 }

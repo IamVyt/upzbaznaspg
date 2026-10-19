@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('kategori_kode', 30);
             $table->string('nama', 150);
             $table->boolean('samarkan_nama')->default(false);
+            $table->boolean('nama_singkat')->default(false);
             $table->string('nip', 30)->nullable();
             $table->string('kontak', 50);
             $table->string('email', 100)->nullable();
@@ -37,6 +38,7 @@ return new class extends Migration
             $table->dateTime('dibatalkan_at')->nullable();
             $table->boolean('tampil_beranda')->default(false);
             $table->boolean('tampil_doa')->default(false);
+            $table->boolean('beranda_blokir')->default(false);
             $table->timestamps();
         });
     }

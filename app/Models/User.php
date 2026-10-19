@@ -63,6 +63,11 @@ class User extends Authenticatable
         return in_array($this->role, ['admin', 'bendahara'], true);
     }
 
+    public function canInput(): bool
+    {
+        return $this->canManageFinance();
+    }
+
     public function donasi()
     {
         return $this->hasMany(Donasi::class, 'user_id');

@@ -4,9 +4,9 @@
     </div>
 @endif
 
-@if (session('error'))
+@if (session('error') || session('danger'))
     <div class="alert danger" role="alert">
-        {{ session('error') }}
+        {{ session('error') ?? session('danger') }}
     </div>
 @endif
 

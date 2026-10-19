@@ -1,78 +1,71 @@
 @extends('layouts.portal')
 
-@section('title', 'Riwayat Donasi Saya')
+@section('title', 'Donasi saya')
 
 @section('content')
 <section class="top">
-    <div class="head">
-        <h1 class="tag">Donasi Saya</h1>
-        <p>Daftar seluruh riwayat donasi online yang pernah Anda ajukan melalui UPZ BAZNAS Petrokimia Gresik.</p>
-    </div>
+ <div class="head"><h1 class="tag">Donasi saya</h1><p>Pantau status donasi Anda. Donasi berstatus Sudah tersalurkan setelah pengurus memeriksa pembayaran, dan buktinya bisa dicetak.</p></div>
 
-    @if ($donasiSaya->isEmpty())
-        <div class="kosong-donatur" style="margin-top: 30px;">
-            <p><b>Anda belum memiliki riwayat donasi.</b></p>
-            <p>Mari mulai berbagi kebaikan melalui program-program pilihan kami.</p>
-            <a class="btn" href="{{ route('donasi.create') }}">Salurkan Donasi Pertama</a>
-        </div>
-    @else
-        <div style="background: #fff; border: 2px solid var(--ink, #191A23); border-radius: 14px; overflow: hidden; margin-top: 20px; box-shadow: 0 4px 0 #191A23;">
-            <table class="tabel" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background: #f4f6f0; border-bottom: 2px solid #191A23; text-align: left;">
-                        <th style="padding: 12px 16px;">Kode Donasi</th>
-                        <th style="padding: 12px 16px;">Tanggal</th>
-                        <th style="padding: 12px 16px;">Program & Paket</th>
-                        <th style="padding: 12px 16px;">Jumlah</th>
-                        <th style="padding: 12px 16px;">Status</th>
-                        <th style="padding: 12px 16px; text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($donasiSaya as $d)
-                        <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 12px 16px; font-weight: 700;">
-                                <a href="{{ route('donasi.bayar', $d->kode) }}" style="color: #191A23; text-decoration: underline;">
-                                    {{ $d->kode }}
-                                </a>
-                            </td>
-                            <td style="padding: 12px 16px;">
-                                {{ $d->created_at->format('d/m/Y H:i') }}
-                            </td>
-                            <td style="padding: 12px 16px;">
-                                <b>{{ $d->program_nama }}</b><br>
-                                <small style="color: #666;">{{ $d->paket }}</small>
-                            </td>
-                            <td style="padding: 12px 16px; font-weight: 700;">
-                                {{ format_rupiah($d->jumlah) }}
-                            </td>
-                            <td style="padding: 12px 16px;">
-                                @if ($d->status === 'menunggu')
-                                    <span class="badge kuning" style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; background: #fff1b8;">Menunggu Bayar</span>
-                                @elseif ($d->status === 'dibayar')
-                                    <span class="badge biru" style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; background: #d9ecff;">Menunggu Verifikasi</span>
-                                @elseif ($d->status === 'diterima')
-                                    <span class="badge hijau" style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; background: #B9FF66;">Tersalurkan</span>
-                                @elseif ($d->status === 'ditolak')
-                                    <span class="badge merah" style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; background: #ffd9d9;">Ditolak</span>
-                                @else
-                                    <span class="badge abu" style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; background: #eee;">Dibatalkan</span>
-                                @endif
-                            </td>
-                            <td style="padding: 12px 16px; text-align: center;">
-                                <a class="btn o sm" href="{{ route('donasi.bayar', $d->kode) }}" style="padding: 6px 12px; font-size: 0.85rem;">
-                                    Detail / Bayar
-                                </a>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+ <div class="grid3">
+  <div class="c g stat"><small>Sudah tersalurkan</small><b>{{ rupiah($tersalurkan) }}</b><small>Tercatat di kas UPZ</small></div>
+  <div class="c l stat"><small>Sedang berjalan</small><b>{{ rupiah($berjalan) }}</b><small>Menunggu pembayaran atau pengecekan</small></div>
+  <div class="c d stat"><small>Total donasi dikirim</small><b>{{ $totalCount }}</b><small>Semua status</small></div>
+ </div>
 
-        <div style="margin-top: 20px;">
-            {{ $donasiSaya->links() }}
-        </div>
+ <div class="bar">
+  <span></span>
+  <div class="acts"><a class="btn g sm" href="{{ route('donasi.create') }}">+ Salurkan donasi</a></div>
+ </div>
+
+ <div class="card">
+  <h2 class="sub">Riwayat donasi <small>{{ $totalCount }} data</small></h2>
+  <div class="scroll">
+   <table class="tbl">
+    <thead><tr><th>Tanggal</th><th>Program dan paket</th><th>Metode</th><th class="r">Nominal</th><th>Status</th><th class="r">Aksi</th></tr></thead>
+    <tbody>
+    @if ($riwayat->isEmpty())
+     <tr><td colspan="6"><div class="empty"><b>Belum ada donasi</b><p>Donasi yang Anda kirim akan muncul di sini beserta statusnya.</p>
+      <a class="btn g sm" href="{{ route('donasi.create') }}">Salurkan sekarang</a></div></td></tr>
     @endif
+    @foreach ($riwayat as $r)
+    @php
+      [$lbl, $kls] = label_status_donasi($r->status);
+      $namaMetode = config('upz.metode_pembayaran.' . $r->metode . '.0', ucfirst($r->metode));
+    @endphp
+     <tr>
+      <td class="nw">{{ $r->created_at->format('d/m/Y') }}<small>{{ $r->created_at->format('H:i') }}</small></td>
+      <td><b>{{ $r->program_nama }}</b>
+       <span class="meta"><i class="cat">{{ $r->paket }}</i><small>{{ $r->kode }}</small></span></td>
+      <td class="nw">{{ $namaMetode }}@if ($r->channel_nama && $r->channel_nama !== $namaMetode)<small>{{ $r->channel_nama }}</small>@endif</td>
+      <td class="r nw"><b>{{ rupiah($r->jumlah) }}</b></td>
+      <td><span class="badge {{ $kls }}">{{ $lbl }}</span>
+       @if ($r->status === 'ditolak' && $r->alasan_tolak)<small>{{ $r->alasan_tolak }}</small>@endif</td>
+      <td class="r nw">
+       @if ($r->status === 'menunggu')
+        <a class="lnk" href="{{ route('donasi.sukses', $r->kode) }}">Bayar</a>
+       @elseif ($r->status === 'diterima')
+        <a class="lnk" href="{{ route('donasi.cetak', $r->kode) }}" target="_blank" rel="noopener">Cetak bukti</a>
+       @else
+        <a class="lnk" href="{{ route('donasi.sukses', $r->kode) }}">Detail</a>
+       @endif
+      </td>
+     </tr>
+    @endforeach
+    </tbody>
+   </table>
+  </div>
+  @if ($riwayat->hasPages())
+  <div class="pg">
+   <small>Halaman {{ $riwayat->currentPage() }} dari {{ $riwayat->lastPage() }}</small>
+   <div>
+    @if (!$riwayat->onFirstPage())<a href="{{ $riwayat->previousPageUrl() }}">←</a>@endif
+    @for ($i = max(1, $riwayat->currentPage() - 2); $i <= min($riwayat->lastPage(), $riwayat->currentPage() + 2); $i++)
+    <a class="{{ $i === $riwayat->currentPage() ? 'on' : '' }}" href="{{ $riwayat->url($i) }}">{{ $i }}</a>
+    @endfor
+    @if ($riwayat->hasMorePages())<a href="{{ $riwayat->nextPageUrl() }}">→</a>@endif
+   </div>
+  </div>
+  @endif
+ </div>
 </section>
 @endsection
