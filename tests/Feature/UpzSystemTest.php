@@ -29,7 +29,8 @@ class UpzSystemTest extends TestCase
     {
         $response = $this->get(route('donasi.create'));
         $response->assertStatus(200);
-        $response->assertSee('Pilihan Paket Penyaluran');
+        $response->assertSee('Salurkan');
+        $response->assertSee('Pilih paket');
     }
 
     public function test_login_page_loads_successfully(): void
@@ -51,6 +52,41 @@ class UpzSystemTest extends TestCase
 
         $dashResponse = $this->get(route('dashboard'));
         $dashResponse->assertStatus(200);
-        $dashResponse->assertSee('Dashboard Keuangan');
+        $dashResponse->assertSee('Riwayat transaksi');
+    }
+
+    public function test_user_can_register_without_phone(): void
+    {
+        $response = $this->post(route('register'), [
+            'name' => 'Donatur Baru',
+            'username' => 'donatur_baru',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('home'));
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', [
+            'username' => 'donatur_baru',
+            'no_hp' => null,
+        ]);
+    }
+
+    public function test_user_can_register_with_optional_phone(): void
+    {
+        $response = $this->post(route('register'), [
+            'name' => 'Donatur Telepon',
+            'username' => 'donatur_wa',
+            'no_hp' => '081234567890',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('home'));
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', [
+            'username' => 'donatur_wa',
+            'no_hp' => '081234567890',
+        ]);
     }
 }

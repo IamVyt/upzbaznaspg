@@ -71,7 +71,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
             'email' => ['nullable', 'email', 'max:100', 'unique:users,email'],
-            'no_hp' => ['required', 'string', 'max:30'],
+            'no_hp' => ['nullable', 'string', 'max:30'],
             'nip' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'confirmed', Password::min(6)],
         ], [
@@ -79,7 +79,6 @@ class AuthController extends Controller
             'username.required' => 'Username wajib diisi.',
             'username.unique' => 'Username sudah digunakan, silakan pilih yang lain.',
             'email.unique' => 'Email sudah terdaftar.',
-            'no_hp.required' => 'Nomor WhatsApp atau telepon wajib diisi.',
             'password.required' => 'Password wajib diisi.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
             'password.min' => 'Password minimal terdiri dari 6 karakter.',
@@ -88,9 +87,9 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'username' => strtolower($validated['username']),
-            'email' => $validated['email'],
-            'no_hp' => $validated['no_hp'],
-            'nip' => $validated['nip'],
+            'email' => $validated['email'] ?? null,
+            'no_hp' => !empty($validated['no_hp']) ? $validated['no_hp'] : null,
+            'nip' => $validated['nip'] ?? null,
             'password' => Hash::make($validated['password']),
             'role' => 'user',
         ]);
