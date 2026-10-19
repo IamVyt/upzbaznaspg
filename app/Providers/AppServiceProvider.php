@@ -12,7 +12,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Enforce session & cache driver ke file agar tidak pernah query table sessions
+        config([
+            'session.driver' => 'file',
+            'cache.default' => 'file',
+        ]);
     }
 
     /**
