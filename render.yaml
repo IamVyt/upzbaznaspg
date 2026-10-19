@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: upz-baznas-pg
+    name: upzbaznaspg
     env: docker
     region: singapore
     plan: free
@@ -12,7 +12,7 @@ services:
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
-        value: "false"
+        value: "true"
       - key: APP_TIMEZONE
         value: Asia/Jakarta
       - key: DB_CONNECTION
