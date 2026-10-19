@@ -35,7 +35,7 @@ $ewallet = channel_aktif($conn, 'ewallet');
 
 $isi = [
     'nama' => (string)($_SESSION['nama'] ?? ''), 'kontak' => '', 'email' => '', 'nip' => '',
-    'jumlah' => '', 'metode' => '', 'catatan' => '', 'samarkan' => '', 'tampil_beranda' => '', 'tampil_doa' => '',
+    'jumlah' => '', 'metode' => '', 'catatan' => '', 'tampil_nama' => 'lengkap', 'tampil_beranda' => '', 'tampil_doa' => '',
 ];
 // Isian awal diambil dari profil akun (menu Pengaturan akun). Tetap bisa diubah khusus untuk donasi ini
 $profil = q_one($conn, "SELECT nama_lengkap, email, no_hp, nip FROM users WHERE id = ?", 'i', [(int)($_SESSION['user_id'] ?? 0)]);
@@ -53,7 +53,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $v = $_POST[$k] ?? '';
         $isi[$k] = is_string($v) ? trim($v) : '';
     }
-    $isi['samarkan'] = isset($_POST['samarkan']) ? '1' : '';
+    $tn = $_POST['tampil_nama'] ?? 'lengkap';
+    $isi['tampil_nama'] = in_array($tn, ['lengkap', 'singkat', 'anonim'], true) ? $tn : 'lengkap';
     $isi['tampil_beranda'] = isset($_POST['tampil_beranda']) ? '1' : '';
     $isi['tampil_doa'] = isset($_POST['tampil_doa']) ? '1' : '';
     $c = $_POST['channel_' . $isi['metode']] ?? '';
@@ -97,14 +98,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             for ($coba = 0; $coba < 5 && $kode === null; $coba++) {
                 $calon = 'UPZ-' . date('ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
                 try {
-                    q($conn, "INSERT INTO donasi (kode, user_id, program, program_nama, paket, kategori_kode, nama, samarkan_nama, nip, kontak, email, jumlah, metode, channel, channel_nama, channel_info, catatan, tampil_beranda, tampil_doa)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        'sisssssisssdsssssii', [
+                    q($conn, "INSERT INTO donasi (kode, user_id, program, program_nama, paket, kategori_kode, nama, samarkan_nama, nip, kontak, email, jumlah, metode, channel, channel_nama, channel_info, catatan, tampil_beranda, tampil_doa, nama_singkat)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        'sisssssisssdsssssiii', [
                             $calon, $userId ?: null, $slug, $prog['nama'], $namaPaket, $info['kategori'], $isi['nama'],
-                            $isi['samarkan'] === '1' ? 1 : 0, $isi['nip'] !== '' ? $isi['nip'] : null, $isi['kontak'],
+                            $isi['tampil_nama'] === 'anonim' ? 1 : 0, $isi['nip'] !== '' ? $isi['nip'] : null, $isi['kontak'],
                             $isi['email'] !== '' ? $isi['email'] : null, $jumlah, $isi['metode'], $kanal, $kanalNama, $kanalInfo,
                             $isi['catatan'] !== '' ? $isi['catatan'] : null,
-                            $tampilBeranda, $tampilDoa,
+                            $tampilBeranda, $tampilDoa, $isi['tampil_nama'] === 'singkat' ? 1 : 0,
                         ]);
                     $kode   = $calon;
                     $idBaru = (int)mysqli_insert_id($conn);
@@ -157,52 +158,93 @@ include __DIR__ . '/php/app_header.php';
   <input type="hidden" name="program" value="<?= e($slug) ?>">
   <input type="hidden" name="paket" value="<?= (int)$idx ?>">
 
+  <?php
+// Blok isian ditampung dulu supaya bisa ditaruh di kolom kiri atau kanan sesuai jenis paket, agar tinggi kedua kolom seimbang.
+// Nominal tetap: kiri berisi data diri, nama samar, dan catatan. Kanan berisi nominal dan metode pembayaran.
+// Nominal bebas: kiri berisi data diri dan nominal. Kanan berisi metode pembayaran, nama samar, dan catatan.
+ob_start(); ?>
+  <fieldset class="tampil-nama">
+   <legend>Nama saya di beranda dan kas</legend>
+   <div class="pilih-bank">
+    <label class="bank"><input type="radio" name="tampil_nama" value="lengkap" <?= $isi['tampil_nama'] === 'lengkap' ? 'checked' : '' ?>><span>Nama lengkap</span></label>
+    <label class="bank"><input type="radio" name="tampil_nama" value="singkat" <?= $isi['tampil_nama'] === 'singkat' ? 'checked' : '' ?>><span>Disingkat: <?= e(nama_singkat($isi['nama'])) ?></span></label>
+    <label class="bank"><input type="radio" name="tampil_nama" value="anonim" <?= $isi['tampil_nama'] === 'anonim' ? 'checked' : '' ?>><span>Hamba Allah</span></label>
+   </div>
+   <small class="bantu">Hamba Allah juga menyamarkan nama di pembukuan kas. Nama disingkat hanya berlaku di beranda. Pengurus tetap melihat data asli untuk verifikasi, dan pilihan ini bisa diubah nanti di halaman detail donasi.</small>
+  </fieldset>
+<?php $blokSamarkan = ob_get_clean();
+
+ob_start(); ?>
+  <label for="catatan">Catatan (opsional)</label>
+  <textarea id="catatan" name="catatan" rows="3" maxlength="500" placeholder="Mis. niat donasi atau pesan untuk pengurus"><?= e($isi['catatan']) ?></textarea>
+<?php $blokCatatan = ob_get_clean();
+
+ob_start();
+if ($bebas): ?>
+  <?php if ($opsiPaket === 'hitung'): ?>
+  <label for="gaji">Penghasilan Anda (Rp, opsional)</label>
+  <div class="hitung">
+   <input id="gaji" type="number" min="0" step="1" inputmode="numeric" placeholder="Mis. 8000000">
+   <button class="btn o" type="button" data-hitung="2.5" data-sumber="gaji" data-target="jumlah">Hitung 2,5%</button>
+  </div>
+  <small class="bantu">Zakat penghasilan umumnya 2,5% dari penghasilan yang mencapai nisab. Cek nisab terbaru di BAZNAS.</small>
+  <?php endif; ?>
+  <label for="jumlah">Nominal (Rp)</label>
+  <input id="jumlah" type="number" name="jumlah" min="<?= $minimal ?>" max="<?= $maksimal ?>" step="1" inputmode="numeric" value="<?= e($isi['jumlah']) ?>" placeholder="Minimal <?= number_format($minimal, 0, ',', '.') ?>" required>
+  <div class="chips" aria-label="Pilihan nominal cepat">
+   <?php foreach ([25000, 50000, 100000, 250000, 500000] as $n): ?>
+   <button class="pill" type="button" data-isi="<?= $n ?>" data-target="jumlah"><?= rupiah($n) ?></button>
+   <?php endforeach; ?>
+  </div>
+<?php else: ?>
+  <span class="lbl">Nominal paket</span>
+  <div class="nominal-tetap"><b><?= rupiah($nominalTetap) ?></b></div>
+<?php endif;
+$blokNominal = ob_get_clean();
+
+$nominalKiri  = $bebas;
+$samarkanKiri = !$bebas || $opsiPaket !== 'hitung';
+$catatanKiri  = !$bebas;
+?>
+  <div class="dua">
+  <div class="kol">
   <label for="nama">Nama lengkap</label>
   <input id="nama" type="text" name="nama" value="<?= e($isi['nama']) ?>" maxlength="150" required>
 
   <div class="kolom2">
    <div>
-    <label for="kontak">WhatsApp atau telepon</label>
+    <label for="kontak">No. WhatsApp/HP</label>
     <input id="kontak" type="tel" name="kontak" value="<?= e($isi['kontak']) ?>" inputmode="tel" maxlength="20" placeholder="081234567890" required>
    </div>
    <div>
-    <label for="nip">NIP atau ID karyawan (opsional)</label>
-    <input id="nip" type="text" name="nip" value="<?= e($isi['nip']) ?>" maxlength="30">
+    <label for="nip" title="NIP atau ID karyawan (opsional)">NIP</label>
+    <input id="nip" type="text" name="nip" value="<?= e($isi['nip']) ?>" maxlength="30" placeholder="Opsional">
    </div>
   </div>
 
   <label for="email">Email (opsional)</label>
   <input id="email" type="email" name="email" value="<?= e($isi['email']) ?>" maxlength="100">
 
-  <label class="cek"><input type="checkbox" name="samarkan" value="1" <?= $isi['samarkan'] === '1' ? 'checked' : '' ?>><span>Tampilkan nama saya sebagai Hamba Allah di pembukuan kas dan di beranda. Pengurus tetap melihat data asli untuk verifikasi.</span></label>
+  <?php if ($nominalKiri) echo $blokNominal; ?>
+  <?php if ($samarkanKiri) echo $blokSamarkan; ?>
+  <?php if ($catatanKiri) echo $blokCatatan; ?>
+  </div>
 
-  <?php if ($bebas): ?>
-   <?php if ($opsiPaket === 'hitung'): ?>
-   <label for="gaji">Penghasilan yang ingin dihitung zakatnya (Rp, opsional)</label>
-   <div class="hitung">
-    <input id="gaji" type="number" min="0" step="1" inputmode="numeric" placeholder="Contoh: 8000000">
-    <button class="btn o" type="button" data-hitung="2.5" data-sumber="gaji" data-target="jumlah">Hitung 2,5%</button>
-   </div>
-   <small class="bantu">Zakat penghasilan umumnya 2,5 persen dari penghasilan yang sudah mencapai nisab. Cek besaran nisab terbaru di BAZNAS sebelum menghitung.</small>
-   <?php endif; ?>
-   <label for="jumlah">Nominal (Rp)</label>
-   <input id="jumlah" type="number" name="jumlah" min="<?= $minimal ?>" max="<?= $maksimal ?>" step="1" inputmode="numeric" value="<?= e($isi['jumlah']) ?>" placeholder="Minimal <?= number_format($minimal, 0, ',', '.') ?>" required>
-   <div class="chips" aria-label="Pilihan nominal cepat">
-    <?php foreach ([25000, 50000, 100000, 250000, 500000] as $n): ?>
-    <button class="pill" type="button" data-isi="<?= $n ?>" data-target="jumlah"><?= rupiah($n) ?></button>
-    <?php endforeach; ?>
-   </div>
-  <?php else: ?>
-   <div class="nominal-tetap"><span>Nominal paket</span><b><?= rupiah($nominalTetap) ?></b></div>
-  <?php endif; ?>
+  <div class="kol">
+
+  <?php if (!$nominalKiri) echo $blokNominal; ?>
 
   <?php include __DIR__ . '/php/pilih_metode.php'; ?>
+  <?php if (!$samarkanKiri) echo $blokSamarkan; ?>
+  <?php if (!$catatanKiri) echo $blokCatatan; ?>
 
-  <label for="catatan">Catatan (opsional)</label>
-  <textarea id="catatan" name="catatan" rows="3" maxlength="500" placeholder="Mis. niat donasi atau pesan untuk pengurus"><?= e($isi['catatan']) ?></textarea>
+  </div>
+  </div>
 
-  <label class="cek"><input type="checkbox" name="tampil_beranda" value="1" <?= $isi['tampil_beranda'] === '1' ? 'checked' : '' ?>><span>Tampilkan donasi saya di daftar Donatur terbaru di beranda setelah dikonfirmasi. Yang tampil hanya nama (atau Hamba Allah bila dicentang di atas), program, dan waktu, tanpa nominal.</span></label>
-  <label class="cek"><input type="checkbox" name="tampil_doa" value="1" <?= $isi['tampil_doa'] === '1' ? 'checked' : '' ?>><span>Sertakan catatan saya sebagai doa di beranda. Berlaku bila kotak di atas dicentang. Jangan menulis data pribadi di catatan.</span></label>
+  <div class="dua izin">
+  <label class="cek"><input type="checkbox" name="tampil_beranda" value="1" <?= $isi['tampil_beranda'] === '1' ? 'checked' : '' ?>><span>Tampilkan donasi saya di daftar Donatur terbaru di beranda setelah dikonfirmasi (hanya nama, program, dan waktu).</span></label>
+  <label class="cek"><input type="checkbox" name="tampil_doa" value="1" <?= $isi['tampil_doa'] === '1' ? 'checked' : '' ?>><span>Sertakan catatan saya sebagai doa di beranda. Jangan menulis data pribadi.</span></label>
+  </div>
 
   <button class="btn" type="submit">Kirim donasi</button>
   <small class="bantu">Donasi tercatat di kas UPZ setelah pembayaran Anda dicek dan dikonfirmasi pengurus.</small>

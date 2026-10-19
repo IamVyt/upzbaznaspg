@@ -65,6 +65,26 @@ if ($aksi === 'ganti_metode') {
                 : 'Bukti pembayaran diperbarui.');
         }
     }
+} elseif ($aksi === 'ubah_tampilan') {
+    // Persetujuan tampil di beranda boleh diubah donatur kapan saja, termasuk dicabut. Nama di kas yang sudah tercatat
+    // saat donasi dikonfirmasi tidak ikut berubah, pilihan ini hanya memengaruhi beranda dan donasi yang belum dikonfirmasi
+    if (!in_array($d['status'], ['menunggu', 'dibayar', 'diterima'], true)) {
+        flash('danger', 'Pengaturan tampilan hanya tersedia untuk donasi yang masih berjalan atau sudah tersalurkan.');
+    } else {
+        $tn = $_POST['tampil_nama'] ?? 'lengkap';
+        $tn = in_array($tn, ['lengkap', 'singkat', 'anonim'], true) ? $tn : 'lengkap';
+        $beranda = isset($_POST['tampil_beranda']) ? 1 : 0;
+        $doa     = ($beranda && isset($_POST['tampil_doa']) && trim((string)$d['catatan']) !== '') ? 1 : 0;
+        q($conn, "UPDATE donasi SET samarkan_nama = ?, nama_singkat = ?, tampil_beranda = ?, tampil_doa = ? WHERE id = ?", 'iiiii',
+            [$tn === 'anonim' ? 1 : 0, $tn === 'singkat' ? 1 : 0, $beranda, $doa, $d['id']]);
+        $namaLama = $d['samarkan_nama'] ? 'anonim' : ($d['nama_singkat'] ? 'singkat' : 'lengkap');
+        catat_audit($conn, 'donasi_ubah_tampilan', 'donasi', (int)$d['id'],
+            ['nama' => $namaLama, 'beranda' => (int)$d['tampil_beranda'], 'doa' => (int)$d['tampil_doa']],
+            ['nama' => $tn, 'beranda' => $beranda, 'doa' => $doa]);
+        flash('success', $beranda
+            ? ($d['status'] === 'diterima' ? 'Pengaturan disimpan. Donasi Anda tampil di beranda sesuai pilihan nama.' : 'Pengaturan disimpan. Donasi Anda akan tampil di beranda setelah dikonfirmasi pengurus.')
+            : 'Pengaturan disimpan. Donasi Anda tidak ditampilkan di beranda.');
+    }
 } elseif ($aksi === 'batal') {
     if ($d['status'] !== 'menunggu') {
         flash('danger', 'Donasi yang sudah dibayar tidak bisa dibatalkan sendiri. Hubungi pengurus UPZ.');

@@ -52,21 +52,25 @@ if ($milik && $st === 'menunggu') {
     $ewallet = channel_aktif($conn, 'ewallet');
 }
 
+// Kolom kiri (cara pembayaran dan bukti) hanya dipakai bila ada isinya. Kalau tidak, kartu detail tetap satu kolom
+$adaKiri = $st === 'menunggu' || ($d['bukti'] && ($milik || is_staff()));
+
 $title  = 'Donasi ' . $d['kode'];
 $publik = true;
 include __DIR__ . '/php/app_header.php';
 ?>
 
-<section class="auth">
+<section class="auth sukses">
  <div class="c g">
   <h1><?= e($judul) ?></h1>
   <p><?= e($kalimat) ?></p>
   <img class="mas" src="img/maskot.svg" alt="Maskot UPZ BAZNAS: koin ramah yang membawa hati" width="340" height="342" decoding="async">
  </div>
 
- <div class="c l">
+ <div class="c l<?= $adaKiri ? ' dua' : '' ?>">
   <h2><span class="tg">Detail donasi</span></h2>
 
+  <div class="ringkas-donasi">
   <?php if ($tahap): ?>
   <ol class="steps" aria-label="Tahapan donasi">
    <li class="<?= $tahap[0] ?>"><b><?= $tahap[0] === 'done' ? '✓' : '1' ?></b>Pesanan</li>
@@ -86,7 +90,9 @@ include __DIR__ . '/php/app_header.php';
    <?php if ($d['dibayar_at']): ?><div><dt>Dilaporkan dibayar</dt><dd><?= e(date('d/m/Y H:i', strtotime($d['dibayar_at']))) ?></dd></div><?php endif; ?>
    <?php if ($st === 'diterima' && $d['diproses_at']): ?><div><dt>Diterima pengurus</dt><dd><?= e(date('d/m/Y H:i', strtotime($d['diproses_at']))) ?></dd></div><?php endif; ?>
   </dl>
+  </div>
 
+  <?php if ($adaKiri): ?><div class="kol-bayar"><?php endif; ?>
   <?php if ($st === 'menunggu'): ?>
   <div class="petunjuk">
    <h3>Cara pembayaran: <?= e($d['channel_nama'] ?: $m[0]) ?></h3>
@@ -119,6 +125,8 @@ include __DIR__ . '/php/app_header.php';
   </div>
   <?php endif; ?>
 
+  <?php if ($adaKiri): ?></div><?php endif; ?>
+
   <?php if ($milik && $st === 'menunggu'): ?>
   <form class="lapor" method="post" action="donasi_aksi.php" enctype="multipart/form-data" data-sekali>
    <?= csrf_field() ?>
@@ -129,7 +137,7 @@ include __DIR__ . '/php/app_header.php';
    <button class="btn" type="submit">Saya sudah membayar</button>
   </form>
 
-  <details class="ganti">
+  <details class="ganti ganti-metode">
    <summary>Ganti metode pembayaran</summary>
    <form method="post" action="donasi_aksi.php" data-sekali>
     <?= csrf_field() ?>
@@ -155,6 +163,32 @@ include __DIR__ . '/php/app_header.php';
    <input id="bukti" type="file" name="bukti" accept="image/jpeg,image/png,image/webp" required>
    <button class="btn o" type="submit">Simpan bukti</button>
   </form>
+  <?php endif; ?>
+
+  <?php if ($milik && in_array($st, ['menunggu', 'dibayar', 'diterima'], true)):
+      $modeNama = $d['samarkan_nama'] ? 'anonim' : ($d['nama_singkat'] ? 'singkat' : 'lengkap'); ?>
+  <details class="ganti ganti-tampil"<?= ($st === 'diterima' && !$d['tampil_beranda']) ? ' open' : '' ?>>
+   <summary>Tampil di beranda: <?= $d['tampil_beranda'] ? ($d['beranda_blokir'] ? 'disembunyikan pengurus' : 'ya') : 'tidak' ?></summary>
+   <form method="post" action="donasi_aksi.php" data-sekali>
+    <?= csrf_field() ?>
+    <input type="hidden" name="aksi" value="ubah_tampilan">
+    <input type="hidden" name="kode" value="<?= e($d['kode']) ?>">
+    <label class="cek"><input type="checkbox" name="tampil_beranda" value="1" <?= $d['tampil_beranda'] ? 'checked' : '' ?>><span>Tampilkan donasi saya di daftar Donatur terbaru di beranda setelah dikonfirmasi (hanya nama, program, dan waktu, tanpa nominal).</span></label>
+    <fieldset class="tampil-nama">
+     <legend>Nama saya di beranda</legend>
+     <div class="pilih-bank">
+      <label class="bank"><input type="radio" name="tampil_nama" value="lengkap" <?= $modeNama === 'lengkap' ? 'checked' : '' ?>><span>Nama lengkap</span></label>
+      <label class="bank"><input type="radio" name="tampil_nama" value="singkat" <?= $modeNama === 'singkat' ? 'checked' : '' ?>><span>Disingkat: <?= e(nama_singkat((string)$d['nama'])) ?></span></label>
+      <label class="bank"><input type="radio" name="tampil_nama" value="anonim" <?= $modeNama === 'anonim' ? 'checked' : '' ?>><span>Hamba Allah</span></label>
+     </div>
+    </fieldset>
+    <?php if (trim((string)$d['catatan']) !== ''): ?>
+    <label class="cek"><input type="checkbox" name="tampil_doa" value="1" <?= $d['tampil_doa'] ? 'checked' : '' ?>><span>Sertakan catatan saya sebagai doa di beranda: <i><?= e(mb_strimwidth(trim((string)$d['catatan']), 0, 90, '…')) ?></i></span></label>
+    <?php endif; ?>
+    <button class="btn o" type="submit">Simpan pengaturan</button>
+    <small class="bantu">Pilihan ini bisa diubah atau dicabut kapan saja. Nama di pembukuan kas yang sudah tercatat tidak ikut berubah.<?= $d['beranda_blokir'] ? ' Pengurus menyembunyikan donasi ini dari beranda.' : '' ?></small>
+   </form>
+  </details>
   <?php endif; ?>
 
   <div class="acts">

@@ -53,6 +53,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     . ($batalKas ? 'Catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
             }
         }
+    } elseif ($aksi === 'beranda') {
+        // Moderasi: menyembunyikan atau menampilkan lagi donatur di beranda. Hanya berlaku bagi donatur yang sudah setuju tampil,
+        // admin tidak bisa memaksa menampilkan donatur yang tidak setuju
+        $id = (int)($_POST['id'] ?? 0);
+        $d  = q_one($conn, "SELECT kode, tampil_beranda, beranda_blokir FROM donasi WHERE id = ? AND status = 'diterima'", 'i', [$id]);
+        if (!$d || !$d['tampil_beranda']) {
+            flash('danger', 'Donasi tidak ditemukan atau donatur tidak mengizinkan tampil di beranda.');
+        } else {
+            $blokir = $d['beranda_blokir'] ? 0 : 1;
+            q($conn, "UPDATE donasi SET beranda_blokir = ? WHERE id = ?", 'ii', [$blokir, $id]);
+            catat_audit($conn, 'donasi_beranda', 'donasi', $id, ['kode' => $d['kode'], 'disembunyikan' => (int)$d['beranda_blokir']], ['kode' => $d['kode'], 'disembunyikan' => $blokir]);
+            flash('success', 'Donasi ' . $d['kode'] . ($blokir ? ' disembunyikan dari beranda.' : ' ditampilkan lagi di beranda.'));
+        }
     } elseif ($aksi === 'hapus_semua') {
         $daftarHapus = q_all($conn, "SELECT id, bukti, jumlah FROM donasi WHERE status = 'diterima'");
         if (!$daftarHapus) {
@@ -138,7 +151,8 @@ $totalHal = max(1, (int)ceil($jml / $perHal));
 $hal      = min(max(1, (int)($_GET['hal'] ?? 1)), $totalHal);
 $daftar   = q_all($conn, "SELECT d.id, d.kode, d.nama, d.samarkan_nama, d.nip, d.kontak, d.email, d.program_nama, d.paket,
         d.metode, d.channel_nama, d.jumlah, d.bukti, COALESCE(d.diproses_at, d.dibuat_at) AS waktu, u.username,
-        t.id AS trx_id, t.dibatalkan_at AS trx_batal"
+        t.id AS trx_id, t.dibatalkan_at AS trx_batal,
+        d.tampil_beranda, d.tampil_doa, d.beranda_blokir, d.nama_singkat"
     . $dari . $sql . " ORDER BY waktu DESC, d.id DESC LIMIT ? OFFSET ?",
     $types . 'ii', array_merge($params, [$perHal, ($hal - 1) * $perHal]));
 
@@ -202,7 +216,7 @@ include __DIR__ . '/php/app_header.php';
      <tr>
       <td><?= ($hal - 1) * $perHal + $i + 1 ?></td>
       <td class="nw"><?= e(date('d/m/Y', strtotime($r['waktu']))) ?><small><?= e(date('H:i', strtotime($r['waktu']))) ?></small></td>
-      <td><b><?= e($r['nama']) ?></b><?= $r['samarkan_nama'] ? ' <i class="cat">disamarkan</i>' : '' ?><small><?= $r['username'] ? '@' . e($r['username']) : 'Tanpa akun' ?></small></td>
+      <td><b><?= e($r['nama']) ?></b><?= $r['samarkan_nama'] ? ' <i class="cat">disamarkan</i>' : '' ?><small><?= $r['username'] ? '@' . e($r['username']) : 'Tanpa akun' ?></small><small>Beranda: <?= $r['tampil_beranda'] ? ($r['beranda_blokir'] ? 'disembunyikan pengurus' : 'tampil sebagai ' . e(nama_beranda((string)$r['nama'], (int)$r['samarkan_nama'], (int)$r['nama_singkat']))) : 'tidak diizinkan donatur' ?></small></td>
       <td><?= e($r['kontak']) ?><?php if ($r['email']): ?><small><?= e($r['email']) ?></small><?php endif; ?><?php if ($r['nip']): ?><small>NIP <?= e($r['nip']) ?></small><?php endif; ?></td>
       <td><b><?= e($r['program_nama']) ?></b><small><?= e($r['paket']) ?></small></td>
       <td class="nw"><?= e($namaMetode) ?><?php if ($r['channel_nama'] && $r['channel_nama'] !== $namaMetode): ?><small><?= e($r['channel_nama']) ?></small><?php endif; ?></td>
@@ -221,6 +235,17 @@ include __DIR__ . '/php/app_header.php';
         <button class="lnk del" type="submit" name="batal_kas" value="1" data-konfirmasi="<?= e('Hapus donasi ' . $r['kode'] . ' dari ' . $r['nama'] . ' DAN batalkan catatan kas-nya sebesar ' . rupiah($r['jumlah']) . '? Saldo kas berkurang sebesar itu. Catatan kas tetap tersimpan dengan tanda void di Dashboard kas, tetapi data donasinya hilang dan tidak bisa dikembalikan.') ?>">Hapus dan batalkan kas</button>
         <?php endif; ?>
        </form>
+       <?php if ($r['tampil_beranda']): ?>
+       <form class="aksi-hapus" method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="aksi" value="beranda">
+        <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+        <input type="hidden" name="cari" value="<?= e($cari) ?>">
+        <input type="hidden" name="program" value="<?= e($prog) ?>">
+        <input type="hidden" name="hal" value="<?= (int)$hal ?>">
+        <button class="lnk" type="submit"><?= $r['beranda_blokir'] ? 'Tampilkan lagi di beranda' : 'Sembunyikan dari beranda' ?></button>
+       </form>
+       <?php endif; ?>
       </td>
       <?php endif; ?>
      </tr>

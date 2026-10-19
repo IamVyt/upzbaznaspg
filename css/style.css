@@ -168,6 +168,20 @@ details p{border-top:1px solid var(--dk);margin-top:1.5rem;padding-top:1.5rem}
 .ct .mas-kontak{display:block;width:min(21rem,80%);height:auto;margin:0 auto;animation:melayang-k 4.5s ease-in-out infinite}
 @keyframes melayang-k{50%{transform:translateY(-.6rem)}}
 
+/* ===== Donatur terbaru: daftar sederhana ===== */
+.daftar-donatur{border:1px solid var(--dk);border-radius:var(--r);box-shadow:0 .28rem 0 var(--dk);background:var(--bg);padding:clamp(.4rem,1.5vw,.9rem) clamp(1.1rem,3vw,2.2rem)}
+.daftar-donatur ul{list-style:none;padding:0}
+.daftar-donatur li{display:flex;align-items:center;gap:1rem;padding:1rem 0;border-bottom:1px solid #e6e6e6}
+.daftar-donatur li:last-child{border-bottom:0}
+.avatar-d{display:grid;place-items:center;flex:none;width:2.6rem;height:2.6rem;border-radius:50%;background:var(--green);color:var(--dk);border:1px solid var(--dk);font-style:normal;font-weight:500}
+.isi-d{flex:1;min-width:0;display:grid;gap:.1rem}
+.isi-d b{font-weight:500}
+.isi-d span{font-size:.88rem;opacity:.65}
+.isi-d em{font-size:.9rem;font-style:italic;opacity:.8;margin-top:.2rem}
+.daftar-donatur time{flex:none;font-size:.85rem;opacity:.55;white-space:nowrap}
+.aksi-d{padding:1.1rem 0 .7rem;text-align:center;border-top:1px solid var(--dk)}
+@media(max-width:600px){.daftar-donatur li{flex-wrap:wrap}.daftar-donatur time{width:100%;padding-left:3.6rem;margin-top:-.4rem}}
+
 /* ===== Footer ===== */
 footer{background:var(--dk);color:#fff;border-radius:var(--r) var(--r) 0 0;margin-top:clamp(4rem,8vw,6.5rem);padding:clamp(1.6rem,3vw,2.2rem) 0}
 footer .top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1.7rem}
@@ -272,7 +286,18 @@ nav.open li a.btn{text-align:center;margin-top:.4rem}
 /* ===== HP ===== */
 @media(max-width:600px){
 :root{--r:1.7rem}
-.grid2,.team{grid-template-columns:1fr}
+/* Program dan Tim tetap 2 kolom di HP supaya tidak terlalu panjang saat digulir */
+.grid2,.team{grid-template-columns:1fr 1fr;gap:.8rem}
+.grid2 .c{padding:1rem;min-height:0;gap:.7rem}
+.grid2 .c h3{font-size:1.02rem;line-height:1.3;max-width:none}
+.grid2 .c svg{position:static;order:-1;width:3rem;height:3rem}
+.grid2 .more{font-size:.85rem;gap:.5rem}
+.grid2 .more i{width:1.9rem;height:1.9rem}
+.team .c{padding:.9rem;gap:.7rem;min-height:0}
+.team .p{flex-direction:column;align-items:flex-start;gap:.55rem}
+.team .c svg{width:3.2rem;height:3.2rem}
+.team b{font-size:.92rem}
+.team small,.team p{font-size:.8rem}
 .c{min-height:10rem}
 .c h3{max-width:9rem}
 .logos{display:grid;grid-template-columns:1fr 1fr;font-size:1.1rem}
@@ -284,5 +309,10 @@ footer .top{flex-direction:column;align-items:flex-start}
 footer .mid{flex-direction:column}
 footer .nl{width:100%}
 }
+
+/* Donatur di beranda */
+.ringkas-donatur{margin:-.4rem 0 1.4rem;font-size:.95rem}
+.kosong-donatur{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem 2rem;padding:clamp(1.4rem,3vw,2.2rem);border:1px solid var(--dk);border-radius:1.6rem;background:var(--gray)}
+.kosong-donatur p{max-width:40rem;margin:0}
 
 @media(prefers-reduced-motion:reduce){*,::before,::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.dlg,.dlg::backdrop{animation:none!important}}

@@ -63,6 +63,37 @@ $pesanHapus = [
     'semua'  => 'Hapus SEMUA ' . (int)$hitung['semua'] . ' catatan aktivitas, bukan hanya yang tampil di hasil pencarian? Tindakan ini tidak bisa dibatalkan.',
 ];
 
+// Ringkasan di bagian atas halaman (tidak terpengaruh pencarian)
+$ringkasan = q_one($conn, "SELECT COUNT(*) AS semua,
+        COALESCE(SUM(DATE(waktu) = CURDATE()), 0) AS hari_ini,
+        COUNT(DISTINCT CASE WHEN waktu >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN username END) AS aktif
+    FROM audit_log");
+$terbanyak = q_one($conn, "SELECT aksi, COUNT(*) AS n FROM audit_log GROUP BY aksi ORDER BY n DESC, aksi ASC LIMIT 1");
+
+// Waktu relatif, misalnya "5 menit lalu"
+if (!function_exists('audit_waktu_lalu')) {
+    function audit_waktu_lalu($waktu) {
+        $s = max(0, time() - strtotime($waktu));
+        if ($s < 60) return 'baru saja';
+        if ($s < 3600) return floor($s / 60) . ' menit lalu';
+        if ($s < 86400) return floor($s / 3600) . ' jam lalu';
+        if ($s < 172800) return 'kemarin';
+        if ($s < 2592000) return floor($s / 86400) . ' hari lalu';
+        return '';
+    }
+}
+// Golongan aktivitas untuk warna titik: hapus, tambah, ubah, masuk, atau lain
+if (!function_exists('audit_golongan')) {
+    function audit_golongan($aksi) {
+        $a = strtolower((string)$aksi);
+        foreach (['hapus' => 'hapus', 'void' => 'hapus', 'batal' => 'hapus', 'tolak' => 'hapus', 'tambah' => 'tambah', 'register' => 'tambah',
+                  'terima' => 'tambah', 'edit' => 'ubah', 'ubah' => 'ubah', 'ganti' => 'ubah', 'login' => 'masuk', 'logout' => 'masuk'] as $kunci => $golongan) {
+            if (strpos($a, $kunci) !== false) return $golongan;
+        }
+        return 'lain';
+    }
+}
+
 $title = 'Riwayat aktivitas';
 $aktif = 'audit';
 include __DIR__ . '/php/app_header.php';
@@ -70,12 +101,11 @@ include __DIR__ . '/php/app_header.php';
 <section class="top">
  <div class="head"><h1 class="tag">Riwayat aktivitas</h1><p>Catatan siapa melakukan apa di sistem: login, perubahan transaksi, donasi, dan perubahan data oleh seluruh pengguna.</p></div>
 
- <div class="bantuan-audit">
-  <b>Cara membaca</b>
-  <ul>
-   <li><b>Penjelasan</b> menceritakan apa yang terjadi, jadi tidak perlu membaca data teknis. Data aslinya tetap bisa dilihat lewat Data mentah.</li>
-   <li><b>Asal perangkat</b> adalah alamat IP, yaitu alamat jaringan perangkat yang dipakai saat aktivitas dilakukan. <i>Komputer ini sendiri</i> berarti dilakukan dari komputer yang sama dengan server (mode uji di XAMPP). Alamat lain berarti dari jaringan kantor atau internet, dan berguna bila perlu menelusuri akses yang mencurigakan.</li>
-  </ul>
+ <div class="grid4">
+  <div class="c g stat"><small>Total aktivitas</small><b><?= (int)$ringkasan['semua'] ?></b><small>Seluruh catatan tersimpan</small></div>
+  <div class="c l stat"><small>Hari ini</small><b><?= (int)$ringkasan['hari_ini'] ?></b><small>Aktivitas sejak pukul 00.00</small></div>
+  <div class="c l stat"><small>Pengguna aktif</small><b><?= (int)$ringkasan['aktif'] ?></b><small>Dalam 7 hari terakhir</small></div>
+  <div class="c d stat"><small>Paling sering</small><b style="font-size:1.1rem"><?= $terbanyak ? e(audit_label_aksi($terbanyak['aksi'])) : '-' ?></b><small><?= $terbanyak ? (int)$terbanyak['n'] . ' kali tercatat' : 'Belum ada data' ?></small></div>
  </div>
 
  <form class="card fbox audit" method="get">
@@ -102,24 +132,35 @@ include __DIR__ . '/php/app_header.php';
     </div>
    </div>
   </div>
+
   <div class="scroll">
-   <table class="tbl">
-    <thead><tr><th>Waktu</th><th>Pengguna</th><th>Aktivitas</th><th>Objek</th><th>Penjelasan</th><th>Asal perangkat</th></tr></thead>
+   <table class="tbl log">
+    <thead><tr><th>Kapan</th><th>Siapa</th><th>Apa yang terjadi</th><th>IP</th></tr></thead>
     <tbody>
-    <?php if (!$baris): ?><tr><td colspan="6"><div class="empty"><b>Belum ada catatan</b><p>Aktivitas akan muncul di sini setelah ada yang login atau mengubah data.</p></div></td></tr><?php endif; ?>
-    <?php foreach ($baris as $r): $uraian = audit_uraian($conn, $r); [$ipUtama, $ipKecil] = audit_label_ip($r['ip']); ?>
+    <?php if (!$baris): ?><tr><td colspan="4"><div class="empty"><b>Belum ada catatan</b><p>Aktivitas akan muncul di sini setelah ada yang login atau mengubah data.</p></div></td></tr><?php endif; ?>
+    <?php foreach ($baris as $r):
+        $uraian = audit_uraian($conn, $r);
+        [$ipUtama, $ipKecil] = audit_label_ip($r['ip']);
+        $kls = audit_golongan($r['aksi']);
+        $rel = audit_waktu_lalu($r['waktu']);
+        $punyaData = $r['data_lama'] || $r['data_baru'];
+    ?>
      <tr>
-      <td class="nw"><?= date('d/m/Y H:i', strtotime($r['waktu'])) ?></td>
-      <td><b><?= e($r['username'] ?? 'Tamu') ?></b><?php if (!$r['username']): ?><small>Belum login</small><?php endif; ?></td>
-      <td><i class="cat panjang" title="<?= e($r['aksi']) ?>"><?= e(audit_label_aksi($r['aksi'])) ?></i></td>
-      <td><?= e(audit_objek($r)) ?></td>
+      <td class="nw"><?= date('d/m/Y', strtotime($r['waktu'])) ?><small><?= date('H:i', strtotime($r['waktu'])) ?><?= $rel !== '' ? ', ' . e($rel) : '' ?></small></td>
+      <td><b><?= e($r['username'] ?? 'Tamu') ?></b></td>
       <td class="detail">
-       <div class="uraian"><?php foreach ($uraian as $baris1): ?><p><?= e($baris1) ?></p><?php endforeach; ?></div>
-       <?php if ($r['data_lama'] || $r['data_baru']): ?>
-       <details class="mentah"><summary>Data mentah</summary><code><?= e(implode("\n", array_filter([$r['data_lama'] ? 'Sebelum: ' . $r['data_lama'] : '', $r['data_baru'] ? 'Sesudah: ' . $r['data_baru'] : '']))) ?></code></details>
-       <?php endif; ?>
+       <p class="kalimat" title="<?= e(implode(' ', array_slice($uraian, 1))) ?>"><i class="titik k-<?= $kls ?>"></i><?= e($uraian[0] ?? audit_label_aksi($r['aksi'])) ?></p>
+
+
+
+
+
+
+
+
+
       </td>
-      <td class="nw"><b><?= e($ipUtama) ?></b><?php if ($ipKecil !== ''): ?><small><?= e($ipKecil) ?></small><?php endif; ?></td>
+      <td class="nw ip" title="<?= e($ipUtama) ?>"><?= e($r['ip'] ?: '-') ?></td>
      </tr>
     <?php endforeach; ?>
     </tbody>

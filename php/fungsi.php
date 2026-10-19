@@ -7,6 +7,41 @@ if (session_status() === PHP_SESSION_NONE) {
 date_default_timezone_set('Asia/Jakarta');
 require_once __DIR__ . '/koneksi.php';
 
+// ===== Keamanan sesi =====
+// Donatur (peran user) keluar otomatis bila tidak aktif lebih dari batas ini. Petugas tidak dibatasi
+const BATAS_DIAM_USER = 1800;   // detik, setara 30 menit
+
+function akhiri_sesi(string $pesan): void {
+    $_SESSION = [];
+    session_regenerate_id(true);   // sesi baru yang bersih, sesi lama dihapus di server
+    $_SESSION['flash'] = ['tipe' => 'info', 'pesan' => $pesan];
+}
+
+// Dijalankan di setiap halaman. Donatur yang lama diam otomatis keluar, dan peran serta akun dicek ulang ke database
+// supaya perubahan peran atau penghapusan akun berlaku saat itu juga, tidak menunggu pengguna logout
+function segarkan_sesi($conn): void {
+    if (($_SESSION['status'] ?? '') !== 'login' || !$conn) return;
+    $sekarang = time();
+    if (($_SESSION['role'] ?? '') === 'user' && $sekarang - (int)($_SESSION['aktif_terakhir'] ?? $sekarang) > BATAS_DIAM_USER) {
+        akhiri_sesi('Sesi Anda berakhir karena tidak aktif lebih dari 30 menit. Silakan masuk kembali.');
+        return;
+    }
+    $_SESSION['aktif_terakhir'] = $sekarang;
+    try {
+        $u = q_one($conn, "SELECT role, username, nama_lengkap FROM users WHERE id = ?", 'i', [(int)($_SESSION['user_id'] ?? 0)]);
+    } catch (Throwable $galat) {
+        return;   // database bermasalah: jangan memaksa pengguna keluar
+    }
+    if (!$u) {
+        akhiri_sesi('Akun Anda tidak ditemukan. Silakan masuk kembali.');
+        return;
+    }
+    $_SESSION['role']     = $u['role'] ?: 'user';
+    $_SESSION['username'] = $u['username'];
+    $_SESSION['nama']     = $u['nama_lengkap'];
+}
+segarkan_sesi($conn ?? null);
+
 // Tabel transaksi terpadu beserta nama kategorinya
 const TRANSAKSI = "(SELECT t.id, t.tipe, COALESCE(t.nama_pihak, 'Hamba Allah') AS nama, t.jumlah, t.tanggal, t.keterangan,
                            t.kategori_id, t.pihak_id, t.dibatalkan_at, t.alasan_batal, kd.nama AS kategori_nama
@@ -221,6 +256,10 @@ function siapkan_donasi($conn): void {
         // Persetujuan donatur untuk tampil di daftar Donatur terbaru di beranda. Bawaan 0 (tidak tampil)
         'tampil_beranda' => 'TINYINT(1) NOT NULL DEFAULT 0',
         'tampil_doa'     => 'TINYINT(1) NOT NULL DEFAULT 0',
+        // Pilihan nama di beranda: 1 = disingkat (Dwi N. H.). Nama lengkap bila 0, Hamba Allah bila samarkan_nama = 1
+        'nama_singkat'   => 'TINYINT(1) NOT NULL DEFAULT 0',
+        // Admin dapat menyembunyikan donatur dari beranda (mis. doa yang tidak pantas) walau donatur sudah setuju
+        'beranda_blokir' => 'TINYINT(1) NOT NULL DEFAULT 0',
     ];
     foreach ($tambahan as $nama => $definisi) {
         if (!isset($kolom[$nama])) mysqli_query($conn, "ALTER TABLE donasi ADD COLUMN $nama $definisi");
@@ -272,8 +311,9 @@ function waktu_relatif(int $selisih): string {
 // Nominal, kontak, email, dan NIP tidak pernah ikut. Aman dipanggil walau tabel atau kolomnya belum ada (hasilnya kosong)
 function donatur_beranda($conn, int $batas = 10): array {
     try {
-        $baris = q_all($conn, "SELECT nama, samarkan_nama, program_nama, catatan, tampil_doa, TIMESTAMPDIFF(SECOND, COALESCE(diproses_at, dibuat_at), NOW()) AS umur
-                               FROM donasi WHERE status = 'diterima' AND tampil_beranda = 1
+        siapkan_donasi($conn);   // pastikan kolom beranda sudah ada, walau belum ada yang membuka halaman donasi
+        $baris = q_all($conn, "SELECT nama, samarkan_nama, nama_singkat, program_nama, catatan, tampil_doa, TIMESTAMPDIFF(SECOND, COALESCE(diproses_at, dibuat_at), NOW()) AS umur
+                               FROM donasi WHERE status = 'diterima' AND tampil_beranda = 1 AND beranda_blokir = 0
                                ORDER BY umur ASC, id DESC LIMIT ?", 'i', [$batas]);
     } catch (Throwable $galat) {
         return [];
@@ -285,13 +325,43 @@ function donatur_beranda($conn, int $batas = 10): array {
             $doa = mb_strimwidth(trim((string)preg_replace('/\s+/', ' ', (string)$r['catatan'])), 0, 180, '…');
         }
         $hasil[] = [
-            'nama'    => $r['samarkan_nama'] ? 'Hamba Allah' : mb_strimwidth(trim((string)$r['nama']), 0, 40, '…'),
+            'nama'    => nama_beranda((string)$r['nama'], (int)$r['samarkan_nama'], (int)$r['nama_singkat']),
             'program' => $r['program_nama'],
             'doa'     => $doa,
             'waktu'   => waktu_relatif((int)$r['umur']),
         ];
     }
     return $hasil;
+}
+
+// Nama singkat: kata pertama utuh, kata berikutnya menjadi inisial. "Dwi Nur Hidayat" menjadi "Dwi N. H."
+function nama_singkat(string $nama): string {
+    $kata = preg_split('/\s+/u', trim($nama), -1, PREG_SPLIT_NO_EMPTY);
+    if (!$kata) return 'Hamba Allah';
+    $hasil = [array_shift($kata)];
+    foreach ($kata as $k) $hasil[] = mb_strtoupper(mb_substr($k, 0, 1)) . '.';
+    return implode(' ', $hasil);
+}
+
+// Nama yang tampil di beranda sesuai pilihan donatur. Nama asli tidak pernah ikut dikirim ke halaman bila disamarkan
+function nama_beranda(string $nama, int $samarkan, int $singkat): string {
+    if ($samarkan) return 'Hamba Allah';
+    return mb_strimwidth($singkat ? nama_singkat($nama) : trim($nama), 0, 40, '…');
+}
+
+// Angka transparansi untuk beranda. Menghitung semua donasi yang sudah tersalurkan, termasuk donatur yang memilih
+// tidak ditampilkan, tanpa membuka identitas siapa pun
+function ringkasan_beranda($conn): array {
+    try {
+        siapkan_donasi($conn);
+        $r = q_one($conn, "SELECT COUNT(*) AS n,
+                COUNT(DISTINCT COALESCE(CONCAT('u', user_id), CONCAT('n', nama))) AS donatur,
+                COALESCE(SUM(tampil_beranda = 1 AND beranda_blokir = 0), 0) AS tampil
+            FROM donasi WHERE status = 'diterima'");
+        return ['donasi' => (int)$r['n'], 'donatur' => (int)$r['donatur'], 'tampil' => (int)$r['tampil']];
+    } catch (Throwable $galat) {
+        return ['donasi' => 0, 'donatur' => 0, 'tampil' => 0];
+    }
 }
 
 // Jumlah donasi yang sudah dibayar donatur dan menunggu dicek petugas (lencana sidebar). Aman dipanggil walau tabelnya belum ada

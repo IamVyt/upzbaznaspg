@@ -19,6 +19,9 @@ const AUDIT_AKSI = [
     'donasi_tolak'        => 'Menolak donasi',
     'donasi_hapus'        => 'Menghapus data donasi',
     'donasi_hapus_semua'  => 'Menghapus banyak donasi sekaligus',
+    'donasi_ubah_tampilan' => 'Donatur mengatur tampil di beranda',
+    'donasi_beranda'      => 'Menyembunyikan atau menampilkan di beranda',
+    'kas_yatim_void'      => 'Membatalkan kas dari donasi terhapus',
     'qris_unggah'         => 'Mengunggah kode QRIS',
     'qris_hapus'          => 'Menghapus kode QRIS',
     'rekening_tambah'     => 'Menambah rekening atau e-wallet',
@@ -230,6 +233,14 @@ function audit_uraian($conn, array $r): array {
                 'Menghapus ' . $n . ' donasi ' . ($tab ? 'dari ' . $tab : 'yang sudah tersalurkan (menu Data donasi)') . ', total ' . $v($baru, 'total_nominal') . '.',
                 $tab ? 'Donasi ini belum masuk kas, jadi kas tidak terpengaruh.' : 'Catatan kas tidak diubah.',
             ];
+
+        case 'donasi_ubah_tampilan':
+            $pilihanNama = ['lengkap' => 'nama lengkap', 'singkat' => 'nama disingkat', 'anonim' => 'Hamba Allah'];
+            $baris = [(!empty($baru['beranda']) ? 'Donatur setuju donasinya tampil di beranda' : 'Donatur tidak menampilkan donasinya di beranda') . '.'];
+            if (!empty($baru['beranda'])) $baris[] = 'Nama yang tampil: ' . ($pilihanNama[$baru['nama'] ?? ''] ?? '-') . '. Doa: ' . (!empty($baru['doa']) ? 'ikut tampil' : 'tidak ditampilkan') . '.';
+            return $baris;
+        case 'donasi_beranda':
+            return [!empty($baru['disembunyikan']) ? 'Donasi ' . $t($baru, 'kode') . ' disembunyikan dari beranda oleh pengurus.' : 'Donasi ' . $t($baru, 'kode') . ' ditampilkan lagi di beranda.'];
 
         case 'qris_unggah':
             return ['Gambar kode QRIS resmi diperbarui. Metode QRIS kini bisa dipilih donatur.'];

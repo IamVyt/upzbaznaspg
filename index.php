@@ -4,25 +4,12 @@ define('KONEKSI_BOLEH_GAGAL', true);
 require __DIR__ . '/php/fungsi.php';
 require __DIR__ . '/php/data.php';
 
-// Donatur yang bersedia ditampilkan. Kalau jumlahnya kurang dari $minDonatur, section ini memakai testimoni statis dari php/data.php
-$minDonatur = 3;   // ubah jadi 1 saat mencoba, supaya satu donatur saja sudah cukup untuk tampil
-$donatur = $conn ? donatur_beranda($conn, 10) : [];
-$pakaiDonatur = count($donatur) >= $minDonatur;
-if ($pakaiDonatur) {
-    $judulBagian = 'Donatur terbaru';
-    $deskBagian  = 'Mereka yang baru saja menunaikan zakat, infak, dan sedekah melalui UPZ. Yang ditampilkan hanya nama, program, dan waktu, tanpa nominal.';
-    $namaKartu   = 'Donatur';
-    $kartu = array_map(fn($d) => [
-        $d['doa'] !== '' ? '“' . $d['doa'] . '”' : 'Berdonasi untuk program ' . $d['program'] . '.',
-        $d['nama'],
-        $d['program'] . ' · ' . $d['waktu'],
-    ], $donatur);
-} else {
-    $judulBagian = 'Testimoni';
-    $deskBagian  = 'Cerita dari donatur dan penerima manfaat tentang pengalaman bersama UPZ.';
-    $namaKartu   = 'Testimoni';
-    $kartu       = $testimoni;
-}
+// Daftar donatur yang SUDAH tersalurkan dan bersedia ditampilkan (lihat donatur_beranda di php/fungsi.php).
+// Tidak ada lagi testimoni contoh. Bila belum ada donatur yang bersedia tampil, section ini mengajak pengunjung menjadi yang pertama.
+$donatur   = $conn ? donatur_beranda($conn, 10) : [];
+$ringkasan = $conn ? ringkasan_beranda($conn) : ['donasi' => 0, 'donatur' => 0, 'tampil' => 0];
+$judulBagian = 'Donatur terbaru';
+$deskBagian  = 'Donatur yang bersedia ditampilkan. Nominal tidak ditampilkan.';
 $title = $site['lengkap'];
 include __DIR__ . '/php/header.php';
 ?>
@@ -110,23 +97,32 @@ include __DIR__ . '/php/header.php';
 
 <section id="donatur">
  <div class="head"><h2 class="tag"><?= e($judulBagian) ?></h2><p><?= e($deskBagian) ?></p></div>
- <div class="tm">
-  <div class="sl" id="sl" role="region" aria-label="Daftar <?= e(strtolower($namaKartu)) ?>" tabindex="0">
-   <div class="lintas" id="lintas">
-   <?php foreach ($kartu as [$isi, $nama, $peran]): ?>
-   <figure>
-    <blockquote><?= e($isi) ?></blockquote>
-    <figcaption><?= e($nama) ?><small><?= e($peran) ?></small></figcaption>
-   </figure>
+ <?php if ($ringkasan['donasi'] > 0): ?>
+ <p class="ringkas-donatur"><b><?= (int)$ringkasan['donasi'] ?> donasi</b> dari <b><?= (int)$ringkasan['donatur'] ?> donatur</b> sudah tersalurkan.</p>
+ <?php endif; ?>
+ <?php if ($donatur): ?>
+ <div class="daftar-donatur">
+  <ul>
+   <?php foreach ($donatur as $d): ?>
+   <li>
+    <i class="avatar-d" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($d['nama'], 0, 1))) ?></i>
+    <div class="isi-d">
+     <b><?= e($d['nama']) ?></b>
+     <span><?= e($d['program']) ?></span>
+     <?php if ($d['doa'] !== ''): ?><em>“<?= e($d['doa']) ?>”</em><?php endif; ?>
+    </div>
+    <time><?= e($d['waktu']) ?></time>
+   </li>
    <?php endforeach; ?>
-   </div>
-  </div>
-  <div class="ctl">
-   <button type="button" aria-label="Geser ke kiri" data-geser="-1">←</button>
-   <div class="dots"><?php foreach ($kartu as $i => $t): ?><button type="button" aria-label="<?= e($namaKartu) ?> <?= $i + 1 ?>" data-ke="<?= $i ?>"<?= $i === 0 ? ' class="on"' : '' ?>></button><?php endforeach; ?></div>
-   <button type="button" aria-label="Geser ke kanan" data-geser="1">→</button>
-  </div>
+  </ul>
+  <div class="aksi-d"><a class="btn" href="salurkan.php">Ikut berdonasi</a></div>
  </div>
+ <?php else: ?>
+ <div class="kosong-donatur">
+  <p><b>Belum ada donatur yang tampil.</b> Jadilah yang pertama.</p>
+  <a class="btn" href="salurkan.php">Salurkan sekarang</a>
+ </div>
+ <?php endif; ?>
 </section>
 
 <section id="kontak">

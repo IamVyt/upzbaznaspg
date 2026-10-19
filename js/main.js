@@ -200,7 +200,7 @@ if (slider && lintas && lintas.children.length) {
 }
 
 // ===== Alur kerja: buka tutup dengan animasi tinggi yang halus =====
-const semuaAlur = document.querySelectorAll('details');
+const semuaAlur = document.querySelectorAll('#alur details');
 
 function geser(d, buka) {
   d.classList.toggle('on', buka);
