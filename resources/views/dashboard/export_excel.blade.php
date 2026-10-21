@@ -53,6 +53,6 @@ Periode: {{ $periode }} | Dicetak: {{ date('d/m/Y H:i') }} WIB oleh {{ $petugas-
  </tfoot>
 </table>
 
-<p class="r" style="margin-top:35px">Gresik, {{ date('d-m-Y') }}<br>Petugas Pengelola Kas UPZ BAZNAS,<br><br><br><br><b>{{ $petugas->name ?? 'Petugas' }}</b><br>ID: @{{ $petugas->username ?? '' }}</p>
+<p class="r" style="margin-top:35px">Gresik, {{ date('d-m-Y') }}<br>Petugas Pengelola Kas UPZ BAZNAS,<br><br><br><br><b>{{ $petugas->name ?? 'Petugas' }}</b><br>ID: {{ $petugas->username ?? '' }}</p>
 </body>
 </html>

@@ -22,8 +22,6 @@ document.querySelectorAll('[data-toggle]').forEach((tombol) => {
 
 // Dialog catat atau ubah transaksi: isian menyesuaikan jenis transaksi dan tombol yang diklik
 if (ambil('dlg-form')) {
-  const kategori = window.KATEGORI || { masuk: [], keluar: [] };
-
   document.querySelectorAll('[data-aksi]').forEach((tombol) => {
     tombol.addEventListener('click', () => {
       const d = tombol.dataset;
@@ -42,9 +40,11 @@ if (ambil('dlg-form')) {
       ambil('f-muzakki').value = '';
       ambil('f-mustahik').value = '';
 
+      const kategori = window.KATEGORI || { masuk: [], keluar: [] };
       const pilihan = ambil('f-kat');
       pilihan.innerHTML = '<option value="">Pilih kategori</option>';
-      kategori[d.tipe].forEach((k) => pilihan.add(new Option(k.nama, k.id)));
+      const katDaftar = (kategori && Array.isArray(kategori[d.tipe])) ? kategori[d.tipe] : [];
+      katDaftar.forEach((k) => pilihan.add(new Option(k.nama, k.id)));
       pilihan.value = d.kategori || '';
 
       ambil('f-nama').value = d.nama || '';
@@ -221,9 +221,10 @@ if (ambil('crud-form')) {
   });
 }
 
-// Grafik arus kas 6 bulan (Chart.js dimuat dari dashboard.php)
-const kanvas = ambil('grafik');
-if (kanvas && window.Chart && window.GRAFIK) {
+// Grafik arus kas 6 bulan (Chart.js dimuat dari dashboard)
+const renderGrafik = () => {
+  const kanvas = ambil('grafik');
+  if (!kanvas || !window.Chart || !window.GRAFIK || kanvas._chartInstance) return;
   const ringkas = (v) => {
     if (v >= 1e9) return 'Rp ' + (v / 1e9).toLocaleString('id-ID') + ' M';
     if (v >= 1e6) return 'Rp ' + (v / 1e6).toLocaleString('id-ID') + ' jt';
@@ -231,13 +232,13 @@ if (kanvas && window.Chart && window.GRAFIK) {
     return 'Rp ' + v;
   };
   const font = { family: 'Space Grotesk', size: 11 };
-  new Chart(kanvas, {
+  kanvas._chartInstance = new Chart(kanvas, {
     type: 'bar',
     data: {
-      labels: window.GRAFIK.label,
+      labels: window.GRAFIK.label || [],
       datasets: [
-        { label: 'Pemasukan', data: window.GRAFIK.masuk, backgroundColor: '#B9FF66', borderColor: '#191A23', borderWidth: 1, borderRadius: 6, maxBarThickness: 18 },
-        { label: 'Pengeluaran', data: window.GRAFIK.keluar, backgroundColor: '#191A23', borderRadius: 6, maxBarThickness: 18 },
+        { label: 'Pemasukan', data: window.GRAFIK.masuk || [], backgroundColor: '#B9FF66', borderColor: '#191A23', borderWidth: 1, borderRadius: 6, maxBarThickness: 18 },
+        { label: 'Pengeluaran', data: window.GRAFIK.keluar || [], backgroundColor: '#191A23', borderRadius: 6, maxBarThickness: 18 },
       ],
     },
     options: {
@@ -245,7 +246,7 @@ if (kanvas && window.Chart && window.GRAFIK) {
       maintainAspectRatio: false,
       plugins: {
         legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font } },
-        tooltip: { callbacks: { label: (c) => c.dataset.label + ': Rp ' + c.parsed.y.toLocaleString('id-ID') } },
+        tooltip: { callbacks: { label: (c) => c.dataset.label + ': Rp ' + (c.parsed.y || 0).toLocaleString('id-ID') } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { font } },
@@ -253,4 +254,10 @@ if (kanvas && window.Chart && window.GRAFIK) {
       },
     },
   });
+};
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderGrafik);
+} else {
+  renderGrafik();
 }
+window.addEventListener('load', renderGrafik);

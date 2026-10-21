@@ -53,7 +53,7 @@ Route::middleware('guest')->group(function () {
 
 // --- Terautentikasi (Semua Pengguna) ---
 Route::middleware('auth')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/akun', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/akun/profil', [ProfileController::class, 'updateProfile'])->name('profile.update');

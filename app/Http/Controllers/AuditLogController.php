@@ -10,6 +10,10 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
+        if (!Auth::user()->isAdmin()) {
+            return redirect()->route('dashboard')->with('danger', 'Halaman riwayat aktivitas hanya dapat diakses oleh Administrator.');
+        }
+
         $cari = trim((string)$request->query('cari', ''));
         $aksi = trim((string)$request->query('aksi', ''));
 

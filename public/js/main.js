@@ -253,7 +253,12 @@ function tutup(d, setelah) {
 }
 
 document.querySelectorAll('[data-dialog]').forEach((tombol) => {
-  tombol.addEventListener('click', () => document.getElementById(tombol.dataset.dialog).showModal());
+  tombol.addEventListener('click', () => {
+    const d = document.getElementById(tombol.dataset.dialog);
+    if (d && typeof d.showModal === 'function') {
+      d.showModal();
+    }
+  });
 });
 
 document.querySelectorAll('dialog.dlg').forEach((d) => {

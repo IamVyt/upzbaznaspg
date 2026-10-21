@@ -89,4 +89,64 @@ class UpzSystemTest extends TestCase
             'no_hp' => '081234567890',
         ]);
     }
+
+    public function test_bayar_page_redirects_guest_to_login(): void
+    {
+        $response = $this->get('/bayar');
+        $response->assertRedirect(route('login'));
+    }
+
+    public function test_bayar_page_redirects_user_if_no_program_params(): void
+    {
+        $user = User::where('role', 'user')->first() ?? User::factory()->create(['role' => 'user']);
+        $response = $this->actingAs($user)->get('/bayar');
+        $response->assertRedirect(route('donasi.create'));
+    }
+
+    public function test_bayar_page_loads_with_valid_program_params(): void
+    {
+        $user = User::where('role', 'user')->first() ?? User::factory()->create(['role' => 'user']);
+        $response = $this->actingAs($user)->get('/bayar?program=zakat-penghasilan&paket=0');
+        $response->assertStatus(200);
+    }
+
+    public function test_logout_works_via_get_and_post(): void
+    {
+        $user = User::where('role', 'user')->first() ?? User::factory()->create(['role' => 'user']);
+
+        // Test POST logout
+        $resPost = $this->actingAs($user)->post('/logout');
+        $resPost->assertRedirect(route('home'));
+        $this->assertGuest();
+
+        // Test GET logout
+        $user2 = User::where('role', 'user')->first() ?? User::factory()->create(['role' => 'user']);
+        $resGet = $this->actingAs($user2)->get('/logout');
+        $resGet->assertRedirect(route('home'));
+        $this->assertGuest();
+    }
+
+    public function test_non_admin_staff_redirected_from_user_and_audit_management(): void
+    {
+        $bendahara = User::where('role', 'bendahara')->first() ?? User::factory()->create(['role' => 'bendahara']);
+
+        $resUsers = $this->actingAs($bendahara)->get('/admin/users');
+        $resUsers->assertRedirect(route('dashboard'));
+        $resUsers->assertSessionHas('danger');
+
+        $resAudit = $this->actingAs($bendahara)->get('/admin/audit');
+        $resAudit->assertRedirect(route('dashboard'));
+        $resAudit->assertSessionHas('danger');
+    }
+
+    public function test_staff_dashboard_renders_with_topbar_and_user_panel(): void
+    {
+        $admin = User::where('role', 'admin')->first() ?? User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get('/admin/dashboard');
+        $response->assertStatus(200);
+        $response->assertSee('staff-header', false);
+        $response->assertSee('Panel Admin');
+        $response->assertSee('Keluar');
+    }
 }

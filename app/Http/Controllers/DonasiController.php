@@ -90,8 +90,8 @@ class DonasiController extends Controller
         ];
 
         // Daftar channel rekening & ewallet yang aktif
-        $bank = RekeningBayar::where('jenis', 'bank')->where('aktif', 1)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
-        $ewallet = RekeningBayar::where('jenis', 'ewallet')->where('aktif', 1)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
+        $bank = RekeningBayar::where('jenis', 'bank')->where('aktif', true)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
+        $ewallet = RekeningBayar::where('jenis', 'ewallet')->where('aktif', true)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
 
         $qris = null;
         foreach (['png', 'jpg', 'webp'] as $ext) {
@@ -126,7 +126,7 @@ class DonasiController extends Controller
         }
 
         $pilihMetode = $isi['metode'];
-        $pilihChannel = old('channel_' . $pilihMetode, array_key_first($pilihMetode === 'bank' ? $bank : $ewallet) ?? '');
+        $pilihChannel = old('channel_' . $pilihMetode, array_key_first($pilihMetode === 'transfer' ? $bank : $ewallet) ?? '');
 
         return view('donasi.bayar', compact(
             'slug',
@@ -220,7 +220,7 @@ class DonasiController extends Controller
         if (in_array($metodeKode, ['transfer', 'ewallet'], true)) {
             $jenis = ($metodeKode === 'transfer') ? 'bank' : 'ewallet';
             $pilihanKanal = (string)$request->input('channel_' . $metodeKode, '');
-            $rec = RekeningBayar::where('jenis', $jenis)->where('aktif', 1)->where('kode', $pilihanKanal)->first();
+            $rec = RekeningBayar::where('jenis', $jenis)->where('aktif', true)->where('kode', $pilihanKanal)->first();
 
             if (!$rec) {
                 return back()->withInput()->with('danger', 'Silakan pilih ' . ($jenis === 'bank' ? 'bank tujuan' : 'e-wallet') . ' untuk pembayaran Anda.');
@@ -369,8 +369,8 @@ class DonasiController extends Controller
             $atasNama = $parts[1] ?? '';
         }
 
-        $bank = RekeningBayar::where('jenis', 'bank')->where('aktif', 1)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
-        $ewallet = RekeningBayar::where('jenis', 'ewallet')->where('aktif', 1)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
+        $bank = RekeningBayar::where('jenis', 'bank')->where('aktif', true)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
+        $ewallet = RekeningBayar::where('jenis', 'ewallet')->where('aktif', true)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
 
         $ada = [
             'transfer' => !empty($bank),
@@ -488,7 +488,7 @@ class DonasiController extends Controller
 
         if (in_array($m, ['transfer', 'ewallet'], true)) {
             $jenis = ($m === 'transfer') ? 'bank' : 'ewallet';
-            $rec = RekeningBayar::where('jenis', $jenis)->where('aktif', 1)->where('kode', $c)->first();
+            $rec = RekeningBayar::where('jenis', $jenis)->where('aktif', true)->where('kode', $c)->first();
             if (!$rec) {
                 return back()->with('danger', 'Silakan pilih ' . ($jenis === 'bank' ? 'bank tujuan' : 'e-wallet') . ' untuk pembayaran Anda.');
             }

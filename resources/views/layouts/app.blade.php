@@ -69,9 +69,14 @@
                     </div>
 
                     <div class="me">
-                        <b>{{ auth()->user()->name ?? 'Petugas' }}</b>
-                        <small>{{ ucfirst($peran) }}</small>
-                        <a class="item" href="{{ route('home') }}">
+                        <div class="me-profile">
+                            <span class="me-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'P', 0, 1)) }}</span>
+                            <div class="me-info">
+                                <b>{{ auth()->user()->name ?? 'Petugas' }}</b>
+                                <small>{{ ucfirst($peran) }}</small>
+                            </div>
+                        </div>
+                        <a class="item" href="{{ route('home') }}" target="_blank" rel="noopener">
                             <svg class="ico"><use href="#i-site"/></svg>Beranda situs
                         </a>
                         <a class="item {{ request()->routeIs('profile.*') ? 'on' : '' }}" href="{{ route('profile.edit') }}">
@@ -79,8 +84,8 @@
                         </a>
                         <form action="{{ route('logout') }}" method="POST" style="margin: 0;">
                             @csrf
-                            <button type="submit" class="item" style="width: 100%; background: none; border: none; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px; font: inherit;">
-                                <svg class="ico"><use href="#i-out"/></svg>Keluar
+                            <button type="submit" class="item logout-btn" style="width: 100%; border: none; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px; font: inherit;">
+                                <svg class="ico"><use href="#i-out"/></svg><b>Keluar</b>
                             </button>
                         </form>
                     </div>
@@ -89,14 +94,37 @@
                 <div class="scrim" data-sb></div>
 
                 <main class="main">
-                    <div class="mbar">
-                        <button class="sbbtn" type="button" data-sb aria-label="Buka menu">
-                            <svg class="ico"><use href="#i-menu"/></svg>
-                        </button>
-                        <span class="logo">
-                            <svg width="22" height="22" fill="currentColor"><use href="#st"/></svg>{{ config('upz.site.nama', 'UPZ BAZNAS PG') }}
-                        </span>
-                    </div>
+                    <header class="staff-header">
+                        <div class="staff-header-left">
+                            <button class="sbbtn" type="button" data-sb aria-label="Buka menu navigasi">
+                                <svg class="ico"><use href="#i-menu"/></svg>
+                            </button>
+                            <div class="staff-header-title">
+                                <span class="staff-badge">Panel {{ ucfirst($peran) }}</span>
+                                <span class="staff-site-name">{{ config('upz.site.nama', 'UPZ BAZNAS PG') }}</span>
+                            </div>
+                        </div>
+                        <div class="staff-header-right">
+                            <a href="{{ route('home') }}" class="btn-ghost" title="Buka Beranda Situs UPZ" target="_blank" rel="noopener">
+                                <svg class="ico"><use href="#i-site"/></svg>
+                                <span class="hide-mobile">Lihat Web</span>
+                            </a>
+                            <a href="{{ route('profile.edit') }}" class="staff-profile-pill" title="Profil Petugas ({{ ucfirst($peran) }})">
+                                <span class="staff-avatar">{{ strtoupper(substr(auth()->user()->name ?? 'P', 0, 1)) }}</span>
+                                <div class="staff-meta hide-mobile">
+                                    <span class="staff-name">{{ auth()->user()->name ?? 'Petugas' }}</span>
+                                    <span class="staff-role">{{ ucfirst($peran) }}</span>
+                                </div>
+                            </a>
+                            <form action="{{ route('logout') }}" method="POST" style="margin: 0; display: inline-flex;">
+                                @csrf
+                                <button type="submit" class="btn-logout" title="Keluar dari akun petugas">
+                                    <svg class="ico"><use href="#i-out"/></svg>
+                                    <span>Keluar</span>
+                                </button>
+                            </form>
+                        </div>
+                    </header>
 
                     @include('partials.alerts')
 
@@ -107,7 +135,7 @@
     </div>
 
     <script src="{{ asset('js/main.js') }}"></script>
-    <script src="{{ asset('js/app.js') }}"></script>
     @stack('scripts')
+    <script src="{{ asset('js/app.js') }}"></script>
 </body>
 </html>

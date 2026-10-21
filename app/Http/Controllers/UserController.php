@@ -12,6 +12,10 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
+        if (!Auth::user()->isAdmin()) {
+            return redirect()->route('dashboard')->with('danger', 'Halaman manajemen pengguna hanya dapat diakses oleh Administrator.');
+        }
+
         $cari = trim((string)$request->query('cari', ''));
 
         $query = User::query()->orderBy('id', 'desc');
