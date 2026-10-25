@@ -230,6 +230,52 @@ class EmailVerificationTest extends TestCase
             ->assertSee('Tanpa email');
     }
 
+    public function test_admin_dapat_mengirim_ulang_verifikasi_dari_kelola_pengguna(): void
+    {
+        Notification::fake();
+
+        $admin = User::where('username', 'admin')->firstOrFail();
+        $user = User::factory()->unverified()->create([
+            'name' => 'Petugas Perlu Verifikasi',
+            'email' => 'perlu.verifikasi@example.com',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('users.index'))
+            ->assertOk()
+            ->assertSee('Kirim ulang')
+            ->assertSee(route('users.resendVerification', $user->id))
+            ->assertDontSee(route('users.resendVerification', $admin->id));
+
+        $this->post(route('users.resendVerification', $user->id))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
+
+        $this->assertDatabaseHas('audit_log', [
+            'aksi' => 'kirim_verifikasi_email',
+            'record_id' => $user->id,
+        ]);
+    }
+
+    public function test_bendahara_tidak_dapat_mengirim_ulang_verifikasi(): void
+    {
+        Notification::fake();
+
+        $bendahara = User::where('username', 'bendahara')->firstOrFail();
+        $user = User::factory()->unverified()->create([
+            'email' => 'tidak.boleh@example.com',
+        ]);
+
+        $this->actingAs($bendahara)
+            ->post(route('users.resendVerification', $user->id))
+            ->assertRedirect()
+            ->assertSessionHas('danger');
+
+        Notification::assertNothingSent();
+    }
+
     public function test_admin_mengubah_email_petugas_mereset_status_verifikasi(): void
     {
         Notification::fake();

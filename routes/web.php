@@ -119,6 +119,9 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->group(function () {
     // Manajemen Pengguna Petugas
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::post('/users/{id}/kirim-verifikasi', [UserController::class, 'resendVerification'])
+        ->middleware('throttle:10,1')
+        ->name('users.resendVerification');
     Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
 });
 

@@ -59,6 +59,12 @@
         <span class="badge in">Terverifikasi</span>
        @else
         <span class="badge wait">Belum verifikasi</span>
+        @if ($bisaUbah)
+         <form method="post" action="{{ route('users.resendVerification', $r->id) }}" style="display:inline;margin:0 0 0 .35rem;" data-konfirmasi="Kirim ulang link verifikasi ke {{ $r->email }}?">
+          @csrf
+          <button class="lnk" type="submit" title="Kirim ulang link verifikasi ke {{ $r->email }}">Kirim ulang</button>
+         </form>
+        @endif
        @endif
       </td>
       <td><i class="cat">{{ $peran[$r->role] ?? $r->role }}</i></td>

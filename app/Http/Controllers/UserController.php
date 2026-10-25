@@ -200,6 +200,40 @@ class UserController extends Controller
         return back();
     }
 
+    public function resendVerification($id)
+    {
+        if (! Auth::user()->isAdmin()) {
+            return back()->with('danger', 'Anda tidak memiliki izin untuk mengirim verifikasi email.');
+        }
+
+        $user = User::find($id);
+        if (! $user) {
+            return back()->with('danger', 'Data tidak ditemukan.');
+        }
+
+        if (! $user->email) {
+            return back()->with('warning', 'Akun ini belum memiliki email. Tambahkan email terlebih dahulu sebelum mengirim verifikasi.');
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return back()->with('info', 'Email '.$user->email.' sudah terverifikasi.');
+        }
+
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('danger', 'Link verifikasi belum bisa dikirim saat ini. Coba lagi beberapa saat lagi.');
+        }
+
+        AuditLog::catat('kirim_verifikasi_email', 'users', $user->id, null, [
+            'email' => $user->email,
+        ]);
+
+        return back()->with('success', 'Link verifikasi sudah dikirim ke '.$user->email.'.');
+    }
+
     public function store(Request $request)
     {
         return $this->proses($request);
