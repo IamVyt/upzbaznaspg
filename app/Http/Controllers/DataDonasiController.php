@@ -5,23 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\Donasi;
 use App\Models\Transaksi;
+use App\Support\BuktiDonasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class DataDonasiController extends Controller
 {
     public function index(Request $request)
     {
-        $cari = trim((string)$request->query('cari', ''));
-        $prog = trim((string)$request->query('program', ''));
+        $cari = trim((string) $request->query('cari', ''));
+        $prog = trim((string) $request->query('program', ''));
 
         $opsiProgram = [];
         foreach (config('upz.program', []) as $p) {
             $opsiProgram[$p['slug']] = $p['nama'];
         }
-        if (!isset($opsiProgram[$prog])) {
+        if (! isset($opsiProgram[$prog])) {
             $prog = '';
         }
 
@@ -33,7 +33,7 @@ class DataDonasiController extends Controller
             'total' => Donasi::where('status', 'diterima')->sum('jumlah'),
             'donatur' => Donasi::where('status', 'diterima')
                 ->get(['user_id', 'nama'])
-                ->map(fn($d) => $d->user_id ? 'u' . $d->user_id : 'n' . $d->nama)
+                ->map(fn ($d) => $d->user_id ? 'u'.$d->user_id : 'n'.$d->nama)
                 ->unique()
                 ->count(),
         ];
@@ -63,13 +63,13 @@ class DataDonasiController extends Controller
         if ($cari !== '') {
             $query->where(function ($q) use ($cari) {
                 $q->where('nama', 'like', "%{$cari}%")
-                  ->orWhere('kode', 'like', "%{$cari}%")
-                  ->orWhere('kontak', 'like', "%{$cari}%")
-                  ->orWhere('email', 'like', "%{$cari}%")
-                  ->orWhere('nip', 'like', "%{$cari}%")
-                  ->orWhereHas('user', function ($uq) use ($cari) {
-                      $uq->where('username', 'like', "%{$cari}%");
-                  });
+                    ->orWhere('kode', 'like', "%{$cari}%")
+                    ->orWhere('kontak', 'like', "%{$cari}%")
+                    ->orWhere('email', 'like', "%{$cari}%")
+                    ->orWhere('nip', 'like', "%{$cari}%")
+                    ->orWhereHas('user', function ($uq) use ($cari) {
+                        $uq->where('username', 'like', "%{$cari}%");
+                    });
             });
         }
 
@@ -77,10 +77,10 @@ class DataDonasiController extends Controller
         $daftar = $query->paginate(10)->withQueryString();
 
         $metode = config('upz.metode_pembayaran', [
-            'qris'    => ['QRIS', 'i-qris'],
-            'bank'    => ['Transfer Bank', 'i-bank'],
+            'qris' => ['QRIS', 'i-qris'],
+            'bank' => ['Transfer Bank', 'i-bank'],
             'ewallet' => ['E-Wallet', 'i-wallet'],
-            'tunai'   => ['Tunai di Kantor', 'i-cash'],
+            'tunai' => ['Tunai di Kantor', 'i-cash'],
         ]);
 
         return view('data_donasi.index', compact(
@@ -90,16 +90,16 @@ class DataDonasiController extends Controller
 
     public function proses(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (! Auth::user()->isAdmin()) {
             return back()->with('danger', 'Hanya admin yang memiliki izin untuk memproses tindakan ini.');
         }
 
-        $aksi = (string)$request->input('aksi');
+        $aksi = (string) $request->input('aksi');
 
         if ($aksi === 'hapus') {
-            $id = (int)$request->input('id');
+            $id = (int) $request->input('id');
             $d = Donasi::where('id', $id)->where('status', 'diterima')->first();
-            if (!$d) {
+            if (! $d) {
                 return back()->with('danger', 'Data donasi tidak ditemukan atau sudah dihapus.');
             }
 
@@ -109,12 +109,10 @@ class DataDonasiController extends Controller
                 if ($batalKas && $d->transaksi) {
                     $d->transaksi->update([
                         'dibatalkan_at' => now(),
-                        'alasan_batal' => 'Donasi ' . $d->kode . ' dihapus oleh admin',
+                        'alasan_batal' => 'Donasi '.$d->kode.' dihapus oleh admin',
                     ]);
                 }
-                if ($d->bukti && Storage::disk('public')->exists($d->bukti)) {
-                    Storage::disk('public')->delete($d->bukti);
-                }
+                BuktiDonasi::hapus($d->bukti);
                 $d->delete();
             });
 
@@ -124,14 +122,14 @@ class DataDonasiController extends Controller
                 'kas_dibatalkan' => $batalKas ? 'ya' : 'tidak',
             ]);
 
-            return back()->with('success', 'Donasi ' . $d->kode . ' atas nama ' . $d->nama . ' dihapus. '
-                . ($batalKas ? 'Catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
+            return back()->with('success', 'Donasi '.$d->kode.' atas nama '.$d->nama.' dihapus. '
+                .($batalKas ? 'Catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
         }
 
         if ($aksi === 'beranda') {
-            $id = (int)$request->input('id');
+            $id = (int) $request->input('id');
             $d = Donasi::where('id', $id)->where('status', 'diterima')->first();
-            if (!$d || !$d->tampil_beranda) {
+            if (! $d || ! $d->tampil_beranda) {
                 return back()->with('danger', 'Donasi tidak ditemukan atau donatur tidak mengizinkan tampil di beranda.');
             }
 
@@ -139,7 +137,8 @@ class DataDonasiController extends Controller
             $d->update(['beranda_blokir' => $blokir]);
 
             AuditLog::catat('donasi_beranda', 'donasi', $id, ['kode' => $d->kode, 'disembunyikan' => $d->beranda_blokir], ['kode' => $d->kode, 'disembunyikan' => $blokir]);
-            return back()->with('success', 'Donasi ' . $d->kode . ($blokir ? ' disembunyikan dari beranda.' : ' ditampilkan lagi di beranda.'));
+
+            return back()->with('success', 'Donasi '.$d->kode.($blokir ? ' disembunyikan dari beranda.' : ' ditampilkan lagi di beranda.'));
         }
 
         if ($aksi === 'hapus_semua') {
@@ -154,7 +153,7 @@ class DataDonasiController extends Controller
                 : [];
 
             DB::transaction(function () use ($daftarHapus, $trxIds) {
-                if (!empty($trxIds)) {
+                if (! empty($trxIds)) {
                     Transaksi::whereIn('id', $trxIds)
                         ->whereNull('dibatalkan_at')
                         ->update([
@@ -163,9 +162,7 @@ class DataDonasiController extends Controller
                         ]);
                 }
                 foreach ($daftarHapus as $d) {
-                    if ($d->bukti && Storage::disk('public')->exists($d->bukti)) {
-                        Storage::disk('public')->delete($d->bukti);
-                    }
+                    BuktiDonasi::hapus($d->bukti);
                     $d->delete();
                 }
             });
@@ -176,8 +173,8 @@ class DataDonasiController extends Controller
                 'kas_dibatalkan' => count($trxIds),
             ]);
 
-            return back()->with('success', $daftarHapus->count() . ' data donasi dihapus, termasuk dari Donasi masuk. '
-                . ($batalKas ? count($trxIds) . ' catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
+            return back()->with('success', $daftarHapus->count().' data donasi dihapus, termasuk dari Donasi masuk. '
+                .($batalKas ? count($trxIds).' catatan kas-nya juga dibatalkan (void) dan saldo disesuaikan.' : 'Catatan di Dashboard kas tidak diubah.'));
         }
 
         if ($aksi === 'batalkan_yatim') {
@@ -188,13 +185,14 @@ class DataDonasiController extends Controller
                 ->pluck('id')
                 ->all();
 
-            if (!empty($yatimIds)) {
+            if (! empty($yatimIds)) {
                 Transaksi::whereIn('id', $yatimIds)->update([
                     'dibatalkan_at' => now(),
                     'alasan_batal' => 'Dibatalkan massal oleh admin karena data donasi asalnya sudah dihapus',
                 ]);
                 AuditLog::catat('yatim_batal', 'transaksi', null, null, ['jumlah' => count($yatimIds)]);
-                return back()->with('success', count($yatimIds) . ' catatan kas dibatalkan (void).');
+
+                return back()->with('success', count($yatimIds).' catatan kas dibatalkan (void).');
             }
 
             return back()->with('info', 'Tidak ada catatan kas yatim yang perlu dibatalkan.');

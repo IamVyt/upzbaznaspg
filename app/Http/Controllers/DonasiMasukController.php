@@ -6,65 +6,65 @@ use App\Models\AuditLog;
 use App\Models\Donasi;
 use App\Models\KategoriDana;
 use App\Models\Transaksi;
+use App\Support\BuktiDonasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class DonasiMasukController extends Controller
 {
     public function index(Request $request)
     {
         $status = $request->query('status', 'semua');
-        $cari = trim((string)$request->query('cari', ''));
+        $cari = trim((string) $request->query('cari', ''));
 
         // Hitung cepat untuk kartu statistik (semua data, tidak terpengaruh filter tab atau pencarian)
         $hitung = [
-            'dibayar'  => ['n' => 0, 'total' => 0],
+            'dibayar' => ['n' => 0, 'total' => 0],
             'menunggu' => ['n' => 0, 'total' => 0],
             'diterima' => ['n' => 0, 'total' => 0],
         ];
-        $totals = Donasi::selectRaw("status, COUNT(*) as n, COALESCE(SUM(jumlah), 0) as total")
+        $totals = Donasi::selectRaw('status, COUNT(*) as n, COALESCE(SUM(jumlah), 0) as total')
             ->groupBy('status')
             ->get();
         foreach ($totals as $b) {
             if (isset($hitung[$b->status])) {
-                $hitung[$b->status] = ['n' => (int)$b->n, 'total' => (float)$b->total];
+                $hitung[$b->status] = ['n' => (int) $b->n, 'total' => (float) $b->total];
             }
         }
         $batal = ['n' => 0, 'total' => 0];
         foreach ($totals as $b) {
             if (in_array($b->status, ['ditolak', 'dibatalkan'], true)) {
-                $batal['n'] += (int)$b->n;
-                $batal['total'] += (float)$b->total;
+                $batal['n'] += (int) $b->n;
+                $batal['total'] += (float) $b->total;
             }
         }
 
         $tab = [
-            'semua'    => ['Semua', []],
-            'dibayar'  => ['Perlu dicek', ['dibayar']],
+            'semua' => ['Semua', []],
+            'dibayar' => ['Perlu dicek', ['dibayar']],
             'menunggu' => ['Menunggu pembayaran', ['menunggu']],
             'diterima' => ['Sudah tersalurkan', ['diterima']],
-            'batal'    => ['Ditolak atau dibatalkan', ['ditolak', 'dibatalkan']],
+            'batal' => ['Ditolak atau dibatalkan', ['ditolak', 'dibatalkan']],
         ];
-        if (!isset($tab[$status])) {
+        if (! isset($tab[$status])) {
             $status = 'semua';
         }
 
         $query = Donasi::query()->orderBy('created_at', 'desc')->orderBy('id', 'desc');
 
-        if (!empty($tab[$status][1])) {
+        if (! empty($tab[$status][1])) {
             $query->whereIn('status', $tab[$status][1]);
         }
 
         if ($cari !== '') {
             $query->where(function ($q) use ($cari) {
                 $q->where('nama', 'like', "%{$cari}%")
-                  ->orWhere('kode', 'like', "%{$cari}%")
-                  ->orWhere('kontak', 'like', "%{$cari}%")
-                  ->orWhere('email', 'like', "%{$cari}%")
-                  ->orWhere('nip', 'like', "%{$cari}%")
-                  ->orWhere('catatan', 'like', "%{$cari}%");
+                    ->orWhere('kode', 'like', "%{$cari}%")
+                    ->orWhere('kontak', 'like', "%{$cari}%")
+                    ->orWhere('email', 'like', "%{$cari}%")
+                    ->orWhere('nip', 'like', "%{$cari}%")
+                    ->orWhere('catatan', 'like', "%{$cari}%");
             });
         }
 
@@ -72,10 +72,10 @@ class DonasiMasukController extends Controller
         $daftar = $query->paginate(20)->withQueryString();
 
         $metode = config('upz.metode_pembayaran', [
-            'qris'    => ['QRIS', 'i-qris'],
-            'bank'    => ['Transfer Bank', 'i-bank'],
+            'qris' => ['QRIS', 'i-qris'],
+            'bank' => ['Transfer Bank', 'i-bank'],
             'ewallet' => ['E-Wallet', 'i-wallet'],
-            'tunai'   => ['Tunai di Kantor', 'i-cash'],
+            'tunai' => ['Tunai di Kantor', 'i-cash'],
         ]);
 
         $bolehHapus = Auth::user()->isAdmin();
@@ -87,36 +87,36 @@ class DonasiMasukController extends Controller
 
     public function proses(Request $request)
     {
-        if (!Auth::user()->canManageFinance()) {
+        if (! Auth::user()->canManageFinance()) {
             return back()->with('danger', 'Anda tidak memiliki izin untuk memproses donasi.');
         }
 
-        $aksi   = $request->input('aksi');
-        $id     = (int)$request->input('id');
+        $aksi = $request->input('aksi');
+        $id = (int) $request->input('id');
         $userId = Auth::id();
 
         if ($aksi === 'terima') {
             $donasi = Donasi::where('id', $id)->whereIn('status', ['menunggu', 'dibayar'])->first();
-            if (!$donasi) {
+            if (! $donasi) {
                 return back()->with('danger', 'Donasi tidak ditemukan atau sudah diproses petugas lain.');
             }
 
             $kategori = KategoriDana::where('kode', $donasi->kategori_kode)->where('tipe', 'masuk')->where('aktif', true)->first()
                 ?? KategoriDana::where('tipe', 'masuk')->where('aktif', true)->first();
 
-            if (!$kategori) {
-                return back()->with('danger', 'Kategori dana ' . $donasi->kategori_kode . ' tidak ditemukan atau tidak aktif. Periksa menu Program dan kategori.');
+            if (! $kategori) {
+                return back()->with('danger', 'Kategori dana '.$donasi->kategori_kode.' tidak ditemukan atau tidak aktif. Periksa menu Program dan kategori.');
             }
 
             DB::transaction(function () use ($donasi, $kategori, $userId) {
                 $namaPihak = $donasi->samarkan_nama ? 'Hamba Allah' : $donasi->nama;
                 $metodeConfig = config('upz.metode_pembayaran', []);
                 $namaMetode = $metodeConfig[$donasi->metode][0] ?? strtoupper($donasi->metode);
-                $via = $namaMetode . (($donasi->channel_nama && $donasi->channel_nama !== $namaMetode) ? ' (' . $donasi->channel_nama . ')' : '');
-                $ket = 'Donasi online ' . $donasi->kode . ', ' . $donasi->program_nama . ', ' . $donasi->paket . ', via ' . $via;
-                $catatan = trim((string)preg_replace('/\s+/', ' ', (string)$donasi->catatan));
-                if ($catatan !== '' && !$donasi->samarkan_nama) {
-                    $ket .= '. Catatan: ' . $catatan;
+                $via = $namaMetode.(($donasi->channel_nama && $donasi->channel_nama !== $namaMetode) ? ' ('.$donasi->channel_nama.')' : '');
+                $ket = 'Donasi online '.$donasi->kode.', '.$donasi->program_nama.', '.$donasi->paket.', via '.$via;
+                $catatan = trim((string) preg_replace('/\s+/', ' ', (string) $donasi->catatan));
+                if ($catatan !== '' && ! $donasi->samarkan_nama) {
+                    $ket .= '. Catatan: '.$catatan;
                 }
 
                 $trx = Transaksi::create([
@@ -146,15 +146,15 @@ class DonasiMasukController extends Controller
                 ]);
             });
 
-            return back()->with('success', 'Donasi ' . $donasi->kode . ' dikonfirmasi: status Sudah tersalurkan dan tercatat sebagai pemasukan kas.');
+            return back()->with('success', 'Donasi '.$donasi->kode.' dikonfirmasi: status Sudah tersalurkan dan tercatat sebagai pemasukan kas.');
         } elseif ($aksi === 'tolak') {
-            $alasan = trim((string)$request->input('alasan'));
+            $alasan = trim((string) $request->input('alasan'));
             if ($alasan === '' || mb_strlen($alasan) > 255) {
                 return back()->with('danger', 'Alasan penolakan wajib diisi (maksimal 255 karakter).');
             }
 
             $donasi = Donasi::where('id', $id)->whereIn('status', ['menunggu', 'dibayar'])->first();
-            if (!$donasi) {
+            if (! $donasi) {
                 return back()->with('danger', 'Donasi tidak ditemukan atau sudah diproses petugas lain.');
             }
 
@@ -173,34 +173,33 @@ class DonasiMasukController extends Controller
                 'alasan' => $alasan,
             ]);
 
-            return back()->with('success', 'Donasi ' . $donasi->kode . ' ditandai ditolak.');
+            return back()->with('success', 'Donasi '.$donasi->kode.' ditandai ditolak.');
         } elseif ($aksi === 'hapus') {
-            if (!Auth::user()->isAdmin()) {
+            if (! Auth::user()->isAdmin()) {
                 return back()->with('danger', 'Hanya admin yang dapat menghapus data donasi.');
             }
 
             $donasi = Donasi::where('id', $id)->whereIn('status', ['menunggu', 'ditolak', 'dibatalkan'])->first();
-            if (!$donasi) {
+            if (! $donasi) {
                 return back()->with('danger', 'Donasi tidak ditemukan atau statusnya sudah berubah. Donasi yang sudah dibayar atau sudah tersalurkan tidak bisa dihapus dari sini.');
             }
 
             $snapshot = $donasi->toArray();
-            if ($donasi->bukti && Storage::disk('public')->exists($donasi->bukti)) {
-                Storage::disk('public')->delete($donasi->bukti);
-            }
+            BuktiDonasi::hapus($donasi->bukti);
             $donasi->delete();
 
             AuditLog::catat('donasi_hapus', 'donasi', $id, $snapshot, null);
-            return back()->with('success', 'Donasi ' . $snapshot['kode'] . ' atas nama ' . $snapshot['nama'] . ' dihapus.');
+
+            return back()->with('success', 'Donasi '.$snapshot['kode'].' atas nama '.$snapshot['nama'].' dihapus.');
         } elseif ($aksi === 'hapus_semua') {
-            if (!Auth::user()->isAdmin()) {
+            if (! Auth::user()->isAdmin()) {
                 return back()->with('danger', 'Hanya admin yang dapat menghapus data donasi.');
             }
 
-            $tabHapus = (string)$request->input('status');
-            $sasaran  = ['menunggu' => ['menunggu'], 'batal' => ['ditolak', 'dibatalkan']][$tabHapus] ?? null;
+            $tabHapus = (string) $request->input('status');
+            $sasaran = ['menunggu' => ['menunggu'], 'batal' => ['ditolak', 'dibatalkan']][$tabHapus] ?? null;
 
-            if (!$sasaran) {
+            if (! $sasaran) {
                 return back()->with('danger', 'Hapus semua hanya tersedia di tab Menunggu pembayaran dan tab Ditolak atau dibatalkan.');
             }
 
@@ -213,9 +212,7 @@ class DonasiMasukController extends Controller
             $totalNominal = $daftarHapus->sum('jumlah');
 
             foreach ($daftarHapus as $d) {
-                if ($d->bukti && Storage::disk('public')->exists($d->bukti)) {
-                    Storage::disk('public')->delete($d->bukti);
-                }
+                BuktiDonasi::hapus($d->bukti);
                 $d->delete();
             }
 
@@ -225,7 +222,7 @@ class DonasiMasukController extends Controller
                 'total_nominal' => $totalNominal,
             ]);
 
-            return back()->with('success', $count . ' donasi dihapus dari tab tersebut.');
+            return back()->with('success', $count.' donasi dihapus dari tab tersebut.');
         }
 
         return back();

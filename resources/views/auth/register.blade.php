@@ -23,6 +23,9 @@
     <input id="name" type="text" name="name" value="{{ old('name') }}" maxlength="100" required autofocus>
     <label for="username">Username</label>
     <input id="username" type="text" name="username" value="{{ old('username') }}" maxlength="30" required>
+    <label for="email">Email</label>
+    <input id="email" type="email" name="email" value="{{ old('email') }}" maxlength="100" autocomplete="email" required>
+    <small class="bantu">Dipakai untuk verifikasi akun dan reset password.</small>
     <label for="no_hp">No. WhatsApp / HP <span style="font-weight:normal;opacity:0.75">(opsional)</span></label>
     <input id="no_hp" type="tel" name="no_hp" value="{{ old('no_hp') }}" maxlength="30" placeholder="08xxxxxxxxxx">
    </div>

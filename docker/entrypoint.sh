@@ -22,16 +22,25 @@ php artisan storage:link --force || true
 export SESSION_DRIVER="${SESSION_DRIVER:-file}"
 export CACHE_STORE="${CACHE_STORE:-file}"
 
-# Pastikan APP_KEY tersedia (jika belum diisi di dashboard Render, gunakan fallback agar tidak error 500)
+# APP_KEY wajib diisi. Jangan memakai key fallback yang tertulis di source code,
+# karena siapa pun dapat memakainya untuk memalsukan cookie/session aplikasi.
 if [ -z "$APP_KEY" ]; then
-    echo "APP_KEY belum diset di environment, menggunakan key default..."
-    export APP_KEY="base64:lqWWup0ko4JzGMK6h5bAiDERcAotzHQH8EjlpT1lEd4="
+    echo "FATAL: APP_KEY belum diset di environment." >&2
+    echo "Buat key dengan: php artisan key:generate --show, lalu simpan sebagai environment variable APP_KEY." >&2
+    exit 1
 fi
 
-# Jalankan migrasi dan seeding database otomatis bila terhubung (misal Supabase / PostgreSQL)
+# Jalankan migrasi database otomatis bila terhubung (misal Supabase / PostgreSQL).
+# Seeder TIDAK dijalankan otomatis agar password pengurus tidak pernah di-reset saat deploy.
 if [ -n "$DB_HOST" ] || [ -n "$DB_URL" ] || [ -n "$DATABASE_URL" ]; then
-    echo "Menjalankan migrasi dan seeder database..."
+    echo "Menjalankan migrasi database..."
     php artisan migrate --force || true
+fi
+
+# Seeder opsional dan eksplisit, mis. saat inisialisasi pertama kali:
+# set RUN_SEEDERS=true pada environment lalu deploy/restart sekali.
+if [ "${RUN_SEEDERS:-false}" = "true" ]; then
+    echo "Menjalankan seeder (RUN_SEEDERS=true)..."
     php artisan db:seed --force || true
 fi
 

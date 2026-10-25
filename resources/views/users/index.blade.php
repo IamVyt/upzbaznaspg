@@ -30,6 +30,8 @@
       <th>No</th>
       <th>Nama lengkap</th>
       <th>Username</th>
+      <th>Email</th>
+      <th>Status email</th>
       <th>Peran</th>
       @if ($bisaUbah)
       <th class="r">Aksi</th>
@@ -39,7 +41,7 @@
     <tbody>
     @if ($baris->isEmpty())
      <tr>
-      <td colspan="5">
+      <td colspan="7">
        <div class="empty"><b>Belum ada data</b><p>Data yang cocok dengan pencarian tidak ditemukan.</p></div>
       </td>
      </tr>
@@ -49,6 +51,16 @@
       <td>{{ ($baris->currentPage() - 1) * $baris->perPage() + $i + 1 }}</td>
       <td><b>{{ $r->name }}</b></td>
       <td>{{ $r->username }}</td>
+      <td>{{ $r->email ?: '-' }}</td>
+      <td>
+       @if (! $r->email)
+        <span class="badge off">Tanpa email</span>
+       @elseif ($r->hasVerifiedEmail())
+        <span class="badge in">Terverifikasi</span>
+       @else
+        <span class="badge wait">Belum verifikasi</span>
+       @endif
+      </td>
       <td><i class="cat">{{ $peran[$r->role] ?? $r->role }}</i></td>
       @if ($bisaUbah)
        @php
@@ -56,6 +68,7 @@
            'id' => (int)$r->id,
            'name' => $r->name,
            'username' => $r->username,
+           'email' => (string) $r->email,
            'role' => $r->role,
          ];
        @endphp
@@ -102,6 +115,9 @@
 
   <label for="cf-username">Username *</label>
   <input id="cf-username" type="text" name="username" maxlength="150" required data-f>
+
+  <label for="cf-email">Email <span style="font-weight:normal;opacity:0.75">(untuk reset password)</span></label>
+  <input id="cf-email" type="email" name="email" maxlength="100" data-f>
 
   <label for="cf-password">Password (minimal 8 karakter)</label>
   <div class="pw">

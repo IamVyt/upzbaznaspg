@@ -60,15 +60,18 @@ class UpzSystemTest extends TestCase
         $response = $this->post(route('register'), [
             'name' => 'Donatur Baru',
             'username' => 'donatur_baru',
+            'email' => 'donatur_baru@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('home'));
+        $response->assertRedirect(route('verification.notice'));
         $this->assertAuthenticated();
         $this->assertDatabaseHas('users', [
             'username' => 'donatur_baru',
+            'email' => 'donatur_baru@example.com',
             'no_hp' => null,
+            'email_verified_at' => null,
         ]);
     }
 
@@ -77,15 +80,17 @@ class UpzSystemTest extends TestCase
         $response = $this->post(route('register'), [
             'name' => 'Donatur Telepon',
             'username' => 'donatur_wa',
+            'email' => 'donatur_wa@example.com',
             'no_hp' => '081234567890',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('home'));
+        $response->assertRedirect(route('verification.notice'));
         $this->assertAuthenticated();
         $this->assertDatabaseHas('users', [
             'username' => 'donatur_wa',
+            'email' => 'donatur_wa@example.com',
             'no_hp' => '081234567890',
         ]);
     }

@@ -24,6 +24,7 @@
    <input id="password" type="password" name="password" required>
    <button type="button" data-pw="password" aria-label="Tampilkan password"><svg><use href="#eye"/></svg></button>
   </div>
+  <small><a class="ul" href="{{ route('password.request') }}">Lupa password?</a></small>
   <button class="btn" type="submit">Login</button>
   <small>Belum punya akun? <a class="ul" href="{{ route('register') }}">Daftar sekarang</a></small>
  </form>

@@ -48,6 +48,7 @@
                 </nav>
 
                 @include('partials.alerts')
+                @include('partials.status-email')
 
                 @yield('content')
             </div>

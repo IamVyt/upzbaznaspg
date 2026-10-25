@@ -6,15 +6,18 @@ services:
     plan: free
     dockerfilePath: Dockerfile
     autoDeploy: true
+    healthCheckPath: /up
     envVars:
       - key: APP_NAME
         value: "UPZ BAZNAS Petrokimia Gresik"
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
-        value: "true"
+        value: "false"
       - key: APP_TIMEZONE
         value: Asia/Jakarta
+      - key: APP_KEY
+        sync: false
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_SSLMODE
@@ -27,8 +30,10 @@ services:
         value: database
       - key: LOG_CHANNEL
         value: stderr
-      # Variabel yang harus diisi di dashboard Render:
-      # - APP_KEY (generate via: php artisan key:generate --show)
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      # Variabel yang WAJIB diisi di dashboard Render:
+      # - APP_KEY (generate via: php artisan key:generate --show; container akan berhenti bila kosong)
       # - DB_HOST (dari Supabase Settings > Database > Host)
       # - DB_PORT (biasanya 5432 atau 6543)
       # - DB_DATABASE (biasanya postgres)

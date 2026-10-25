@@ -29,6 +29,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Batas upload PHP harus lebih besar dari validasi aplikasi (2 MB) dan client_max_body_size Nginx.
+RUN printf "upload_max_filesize = 8M\npost_max_size = 10M\n" > /usr/local/etc/php/conf.d/uploads.ini
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

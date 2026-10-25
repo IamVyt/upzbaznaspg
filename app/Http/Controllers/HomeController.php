@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Donasi;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class HomeController extends Controller
 {
@@ -18,13 +18,12 @@ class HomeController extends Controller
 
         // Ambil donatur terbaru yang statusnya diterima dan opt-in tampil_beranda (dengan fallback aman jika DB sedang proses)
         try {
-            $donaturTerbaru = Donasi::where('status', 'diterima')
-                ->where('tampil_beranda', true)
+            $donaturTerbaru = Donasi::tampilBeranda()
                 ->latest('diproses_at')
                 ->take(6)
                 ->get();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('DB belum terhubung untuk widget donatur beranda: ' . $e->getMessage());
+            Log::warning('DB belum terhubung untuk widget donatur beranda: '.$e->getMessage());
             $donaturTerbaru = collect();
         }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\KategoriDana;
 use App\Models\Transaksi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,7 +12,7 @@ class TransaksiController extends Controller
 {
     public function store(Request $request)
     {
-        if (!Auth::user()->canManageFinance()) {
+        if (! Auth::user()->canManageFinance()) {
             return back()->with('error', 'Anda tidak memiliki hak akses mencatat kas.');
         }
 
@@ -20,14 +21,24 @@ class TransaksiController extends Controller
             'kategori_id' => ['required', 'exists:kategori_dana,id'],
             'nama_pihak' => ['nullable', 'string', 'max:150'],
             'jumlah' => ['required', 'numeric', 'min:100'],
-            'tanggal' => ['required', 'date'],
+            'tanggal' => ['required', 'date', 'before_or_equal:today'],
             'keterangan' => ['nullable', 'string', 'max:500'],
         ], [
             'kategori_id.required' => 'Kategori kas wajib dipilih.',
             'jumlah.required' => 'Nominal wajib diisi.',
             'jumlah.min' => 'Nominal minimal Rp 100.',
             'tanggal.required' => 'Tanggal transaksi wajib diisi.',
+            'tanggal.before_or_equal' => 'Tanggal transaksi tidak boleh melebihi hari ini.',
         ]);
+
+        $kategori = KategoriDana::where('id', $validated['kategori_id'])
+            ->where('tipe', $validated['tipe'])
+            ->where('aktif', true)
+            ->first();
+
+        if (! $kategori) {
+            return back()->withInput()->with('error', 'Kategori kas tidak sesuai dengan tipe transaksi atau sudah nonaktif.');
+        }
 
         $transaksi = Transaksi::create([
             'tipe' => $validated['tipe'],
@@ -51,7 +62,7 @@ class TransaksiController extends Controller
 
     public function void(Request $request, $id)
     {
-        if (!Auth::user()->canManageFinance()) {
+        if (! Auth::user()->canManageFinance()) {
             return back()->with('error', 'Hanya Admin dan Bendahara yang dapat membatalkan transaksi.');
         }
 
@@ -84,11 +95,11 @@ class TransaksiController extends Controller
 
     public function export(Request $request)
     {
-        $cari = trim((string)$request->query('cari', ''));
-        $mulai = (string)$request->query('tgl_mulai', '');
-        $selesai = (string)$request->query('tgl_selesai', '');
-        $tipe = (string)$request->query('tipe', 'semua');
-        $kategori = (int)$request->query('kategori', 0);
+        $cari = trim((string) $request->query('cari', ''));
+        $mulai = (string) $request->query('tgl_mulai', '');
+        $selesai = (string) $request->query('tgl_selesai', '');
+        $tipe = (string) $request->query('tipe', 'semua');
+        $kategori = (int) $request->query('kategori', 0);
 
         $query = Transaksi::with(['kategori', 'pembuat'])
             ->whereNull('dibatalkan_at')
@@ -110,18 +121,18 @@ class TransaksiController extends Controller
         if ($cari !== '') {
             $query->where(function ($q) use ($cari) {
                 $q->where('nama_pihak', 'like', "%{$cari}%")
-                  ->orWhere('keterangan', 'like', "%{$cari}%");
+                    ->orWhere('keterangan', 'like', "%{$cari}%");
             });
         }
 
         $daftar = $query->get();
 
         if ($mulai !== '' && $selesai !== '') {
-            $periode = date('d/m/Y', strtotime($mulai)) . ' s.d. ' . date('d/m/Y', strtotime($selesai));
+            $periode = date('d/m/Y', strtotime($mulai)).' s.d. '.date('d/m/Y', strtotime($selesai));
         } elseif ($mulai !== '') {
-            $periode = 'Mulai ' . date('d/m/Y', strtotime($mulai));
+            $periode = 'Mulai '.date('d/m/Y', strtotime($mulai));
         } elseif ($selesai !== '') {
-            $periode = 'Sampai ' . date('d/m/Y', strtotime($selesai));
+            $periode = 'Sampai '.date('d/m/Y', strtotime($selesai));
         } else {
             $periode = 'Semua transaksi';
         }
@@ -130,7 +141,7 @@ class TransaksiController extends Controller
         $totalKeluarSemua = Transaksi::aktif()->keluar()->sum('jumlah');
         $saldoTotal = $totalMasukSemua - $totalKeluarSemua;
 
-        $fileName = 'Laporan_Keuangan_UPZ_' . date('Ymd_His') . '.xls';
+        $fileName = 'Laporan_Keuangan_UPZ_'.date('Ymd_His').'.xls';
 
         $headers = [
             'Content-Type' => 'application/vnd.ms-excel; charset=utf-8',

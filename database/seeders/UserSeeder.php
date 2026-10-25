@@ -15,6 +15,7 @@ class UserSeeder extends Seeder
                 'name' => 'Administrator UPZ',
                 'username' => 'admin',
                 'email' => 'admin@baznas-pkg.id',
+                'email_verified_at' => now(),
                 'password' => Hash::make('admin123'),
                 'role' => 'admin',
                 'no_hp' => '082264904535',
@@ -24,6 +25,7 @@ class UserSeeder extends Seeder
                 'name' => 'Bendahara UPZ',
                 'username' => 'bendahara',
                 'email' => 'bendahara@baznas-pkg.id',
+                'email_verified_at' => now(),
                 'password' => Hash::make('bendahara123'),
                 'role' => 'bendahara',
                 'no_hp' => '081234567891',
@@ -33,6 +35,7 @@ class UserSeeder extends Seeder
                 'name' => 'Ketua UPZ',
                 'username' => 'ketua',
                 'email' => 'ketua@baznas-pkg.id',
+                'email_verified_at' => now(),
                 'password' => Hash::make('ketua123'),
                 'role' => 'ketua',
                 'no_hp' => '081234567892',
@@ -42,6 +45,7 @@ class UserSeeder extends Seeder
                 'name' => 'Ahmad Muzakki',
                 'username' => 'donatur',
                 'email' => 'donatur@gmail.com',
+                'email_verified_at' => now(),
                 'password' => Hash::make('donatur123'),
                 'role' => 'user',
                 'no_hp' => '081234567893',
@@ -50,7 +54,9 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $u) {
-            User::updateOrCreate(['username' => $u['username']], $u);
+            // firstOrCreate: seeder yang dijalankan ulang tidak boleh menimpa
+            // password/role akun yang sudah diubah oleh pengurus.
+            User::firstOrCreate(['username' => $u['username']], $u);
         }
     }
 }

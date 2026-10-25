@@ -41,14 +41,14 @@ class AuthController extends Controller
             $tujuan = session('tujuan');
             session()->forget('tujuan');
             if ($tujuan) {
-                return redirect($tujuan)->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
+                return redirect($tujuan)->with('success', 'Selamat datang kembali, '.Auth::user()->name.'!');
             }
 
             if (Auth::user()->isStaff()) {
-                return redirect()->intended(route('dashboard'))->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
+                return redirect()->intended(route('dashboard'))->with('success', 'Selamat datang kembali, '.Auth::user()->name.'!');
             }
 
-            return redirect()->intended(route('home'))->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
+            return redirect()->intended(route('home'))->with('success', 'Selamat datang kembali, '.Auth::user()->name.'!');
         }
 
         return back()->withErrors([
@@ -67,10 +67,14 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        if ($request->filled('email')) {
+            $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
-            'email' => ['nullable', 'email', 'max:100', 'unique:users,email'],
+            'email' => ['required', 'string', 'email', 'max:100', 'unique:users,email'],
             'no_hp' => ['nullable', 'string', 'max:30'],
             'nip' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'confirmed', Password::min(6)],
@@ -78,6 +82,8 @@ class AuthController extends Controller
             'name.required' => 'Nama lengkap wajib diisi.',
             'username.required' => 'Username wajib diisi.',
             'username.unique' => 'Username sudah digunakan, silakan pilih yang lain.',
+            'email.required' => 'Email wajib diisi agar akun bisa dipulihkan.',
+            'email.email' => 'Format email tidak valid.',
             'email.unique' => 'Email sudah terdaftar.',
             'password.required' => 'Password wajib diisi.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
@@ -87,8 +93,8 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'username' => strtolower($validated['username']),
-            'email' => $validated['email'] ?? null,
-            'no_hp' => !empty($validated['no_hp']) ? $validated['no_hp'] : null,
+            'email' => strtolower($validated['email']),
+            'no_hp' => ! empty($validated['no_hp']) ? $validated['no_hp'] : null,
             'nip' => $validated['nip'] ?? null,
             'password' => Hash::make($validated['password']),
             'role' => 'user',
@@ -99,15 +105,20 @@ class AuthController extends Controller
         AuditLog::catat('register', 'users', $user->id, null, [
             'username' => $user->username,
             'name' => $user->name,
+            'email' => $user->email,
         ]);
 
-        $tujuan = session('tujuan');
-        session()->forget('tujuan');
-        if ($tujuan) {
-            return redirect($tujuan)->with('success', 'Pendaftaran berhasil. Selamat datang, ' . $user->name . '!');
+        try {
+            $user->sendEmailVerificationNotification();
+            $status = 'success';
+            $pesan = 'Pendaftaran berhasil. Kami sudah mengirim link verifikasi ke '.$user->email.'.';
+        } catch (\Throwable $e) {
+            report($e);
+            $status = 'warning';
+            $pesan = 'Pendaftaran berhasil, tetapi email verifikasi belum bisa dikirim. Gunakan tombol kirim ulang di halaman verifikasi.';
         }
 
-        return redirect()->route('home')->with('success', 'Pendaftaran akun berhasil! Selamat datang di layanan UPZ BAZNAS Petrokimia Gresik.');
+        return redirect()->route('verification.notice')->with($status, $pesan);
     }
 
     public function logout(Request $request)

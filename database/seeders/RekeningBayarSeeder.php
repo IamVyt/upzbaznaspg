@@ -22,7 +22,8 @@ class RekeningBayarSeeder extends Seeder
         ];
 
         foreach ($rekening as $item) {
-            RekeningBayar::updateOrCreate(
+            // Jangan timpa nomor rekening yang sudah diubah admin lewat menu pembayaran.
+            RekeningBayar::firstOrCreate(
                 ['jenis' => $item['jenis'], 'kode' => $item['kode']],
                 $item
             );

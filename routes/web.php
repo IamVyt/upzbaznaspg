@@ -7,7 +7,9 @@ use App\Http\Controllers\DataDonasiController;
 use App\Http\Controllers\DataPenyaluranController;
 use App\Http\Controllers\DonasiController;
 use App\Http\Controllers\DonasiMasukController;
+use App\Http\Controllers\EmailVerificationController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\RekeningBayarController;
@@ -29,14 +31,14 @@ Route::get('/salurkan', [DonasiController::class, 'salurkan'])->name('donasi.cre
 
 // Langkah 2: Isi Data
 Route::get('/bayar', [DonasiController::class, 'bayarForm'])->name('donasi.bayarForm');
-Route::post('/bayar', [DonasiController::class, 'prosesBayar'])->name('donasi.prosesBayar');
+Route::post('/bayar', [DonasiController::class, 'prosesBayar'])->middleware('throttle:10,1')->name('donasi.prosesBayar');
 
 // Langkah 3: Detail, Instruksi Bayar, dan Bukti Donasi
 Route::get('/donasi/sukses/{kode}', [DonasiController::class, 'sukses'])->name('donasi.sukses');
-Route::get('/donasi/bayar/{kode}', fn($kode) => redirect()->route('donasi.sukses', $kode))->name('donasi.bayar');
+Route::get('/donasi/bayar/{kode}', [DonasiController::class, 'bayarRedirect'])->name('donasi.bayar');
 
 // Aksi Donatur (ganti metode, lapor bayar, ubah tampilan beranda, batalkan)
-Route::post('/donasi/lapor-bayar/{kode}', [DonasiController::class, 'uploadBukti'])->name('donasi.laporBayar');
+Route::post('/donasi/lapor-bayar/{kode}', [DonasiController::class, 'uploadBukti'])->middleware('throttle:20,1')->name('donasi.laporBayar');
 Route::post('/donasi/ganti-metode/{kode}', [DonasiController::class, 'gantiMetode'])->name('donasi.gantiMetode');
 Route::post('/donasi/ubah-tampilan/{kode}', [DonasiController::class, 'ubahTampilan'])->name('donasi.ubahTampilan');
 Route::post('/donasi/batal/{kode}', [DonasiController::class, 'batal'])->name('donasi.batal');
@@ -46,14 +48,29 @@ Route::get('/bukti/{kode}', [DonasiController::class, 'showBukti'])->name('donas
 // --- Tamu (Guest) ---
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+
+    // Lupa & reset password via email
+    Route::get('/forgot-password', [PasswordResetController::class, 'requestForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'resetForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:5,1')->name('password.update');
 });
 
 // --- Terautentikasi (Semua Pengguna) ---
 Route::middleware('auth')->group(function () {
     Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Verifikasi email
+    Route::get('/email/verify', [EmailVerificationController::class, 'notice'])->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('verification.verify');
+    Route::post('/email/verification-notification', [EmailVerificationController::class, 'send'])
+        ->middleware('throttle:6,1')
+        ->name('verification.send');
 
     Route::get('/akun', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/akun/profil', [ProfileController::class, 'updateProfile'])->name('profile.update');
@@ -106,4 +123,4 @@ Route::middleware(['auth', 'staff'])->prefix('admin')->group(function () {
 });
 
 // Shortcut redirect /dashboard -> /admin/dashboard
-Route::get('/dashboard', fn() => redirect()->route('dashboard'));
+Route::redirect('/dashboard', '/admin/dashboard');
