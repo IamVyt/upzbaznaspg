@@ -230,6 +230,57 @@ class EmailVerificationTest extends TestCase
             ->assertSee('Tanpa email');
     }
 
+    public function test_filter_belum_verifikasi_hanya_menampilkan_akun_dengan_email_belum_verifikasi(): void
+    {
+        $admin = User::where('username', 'admin')->firstOrFail();
+
+        User::factory()->unverified()->create([
+            'name' => 'Akun Belum Verifikasi Filter',
+            'email' => 'belum.verifikasi.filter@example.com',
+        ]);
+
+        User::factory()->create([
+            'name' => 'Akun Sudah Verifikasi Filter',
+            'email' => 'sudah.verifikasi.filter@example.com',
+        ]);
+
+        User::factory()->unverified()->create([
+            'name' => 'Akun Tanpa Email Filter',
+            'email' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('users.index', ['verifikasi' => 'belum']))
+            ->assertOk()
+            ->assertSee('Akun Belum Verifikasi Filter')
+            ->assertDontSee('Akun Sudah Verifikasi Filter')
+            ->assertDontSee('Akun Tanpa Email Filter')
+            ->assertSee('name="verifikasi" value="belum"', false);
+    }
+
+    public function test_filter_belum_verifikasi_tetap_menghormati_pencarian(): void
+    {
+        $admin = User::where('username', 'admin')->firstOrFail();
+
+        User::factory()->unverified()->create([
+            'name' => 'Pencarian Cocok Filter',
+            'username' => 'cocok_filter',
+            'email' => 'cocok.filter@example.com',
+        ]);
+
+        User::factory()->unverified()->create([
+            'name' => 'Pencarian Lain Filter',
+            'username' => 'lain_filter',
+            'email' => 'lain.filter@example.com',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('users.index', ['verifikasi' => 'belum', 'cari' => 'cocok_filter']))
+            ->assertOk()
+            ->assertSee('Pencarian Cocok Filter')
+            ->assertDontSee('Pencarian Lain Filter');
+    }
+
     public function test_admin_dapat_mengirim_ulang_verifikasi_dari_kelola_pengguna(): void
     {
         Notification::fake();

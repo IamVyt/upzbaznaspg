@@ -9,10 +9,17 @@
   <p>Akun petugas dan pendaftar. Hanya admin yang dapat memberi peran admin, bendahara, atau ketua.</p>
  </div>
  <div class="bar">
+  <div class="pills" role="group" aria-label="Filter status email">
+   <a class="pill {{ $verifikasi === 'semua' ? 'on' : '' }}" href="{{ route('users.index', array_filter(['cari' => $cari])) }}" @if ($verifikasi === 'semua') aria-current="page" @endif>Semua</a>
+   <a class="pill {{ $verifikasi === 'belum' ? 'on' : '' }}" href="{{ route('users.index', array_filter(['cari' => $cari, 'verifikasi' => 'belum'])) }}" @if ($verifikasi === 'belum') aria-current="page" @endif>Belum verifikasi</a>
+  </div>
   <form class="acts" method="get">
+   @if ($verifikasi !== 'semua')
+    <input type="hidden" name="verifikasi" value="{{ $verifikasi }}">
+   @endif
    <input type="text" name="cari" value="{{ $cari }}" placeholder="Cari data" aria-label="Cari" style="margin:0;width:16rem;max-width:100%">
    <button class="btn sm" type="submit">Cari</button>
-   @if ($cari !== '')
+   @if ($cari !== '' || $verifikasi !== 'semua')
     <a class="btn o sm" href="{{ route('users.index') }}">Reset</a>
    @endif
   </form>
@@ -22,7 +29,7 @@
  </div>
 
  <div class="card">
-  <h2 class="sub">Daftar data <small>{{ $total }} data</small></h2>
+  <h2 class="sub">Daftar data <small>{{ $total }} data{{ $verifikasi === 'belum' ? ' · belum verifikasi' : '' }}</small></h2>
   <div class="scroll">
    <table class="tbl">
     <thead>
@@ -42,7 +49,7 @@
     @if ($baris->isEmpty())
      <tr>
       <td colspan="7">
-       <div class="empty"><b>Belum ada data</b><p>Data yang cocok dengan pencarian tidak ditemukan.</p></div>
+       <div class="empty"><b>Belum ada data</b><p>{{ $verifikasi === 'belum' ? 'Tidak ada akun belum verifikasi yang cocok dengan pencarian ini.' : 'Data yang cocok dengan pencarian tidak ditemukan.' }}</p></div>
       </td>
      </tr>
     @endif

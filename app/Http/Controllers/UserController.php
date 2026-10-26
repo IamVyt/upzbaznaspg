@@ -17,8 +17,19 @@ class UserController extends Controller
         }
 
         $cari = trim((string) $request->query('cari', ''));
+        $verifikasi = (string) $request->query('verifikasi', 'semua');
+
+        if (! in_array($verifikasi, ['semua', 'belum'], true)) {
+            $verifikasi = 'semua';
+        }
 
         $query = User::query()->orderBy('id', 'desc');
+
+        if ($verifikasi === 'belum') {
+            $query->whereNotNull('email')
+                ->where('email', '<>', '')
+                ->whereNull('email_verified_at');
+        }
 
         if ($cari !== '') {
             $query->where(function ($q) use ($cari) {
@@ -40,7 +51,7 @@ class UserController extends Controller
 
         $bisaUbah = Auth::user()->isAdmin();
 
-        return view('users.index', compact('baris', 'total', 'cari', 'peran', 'bisaUbah'));
+        return view('users.index', compact('baris', 'total', 'cari', 'verifikasi', 'peran', 'bisaUbah'));
     }
 
     public function proses(Request $request)
