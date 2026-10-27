@@ -7,6 +7,7 @@ use App\Notifications\VerifyEmailNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
@@ -20,6 +21,16 @@ class EmailVerificationTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+    }
+
+    public function test_transport_resend_tersedia_untuk_production(): void
+    {
+        config([
+            'mail.default' => 'resend',
+            'services.resend.key' => 're_test_key',
+        ]);
+
+        $this->assertSame('resend', (string) Mail::mailer()->getSymfonyTransport());
     }
 
     public function test_registrasi_wajib_mengisi_email(): void

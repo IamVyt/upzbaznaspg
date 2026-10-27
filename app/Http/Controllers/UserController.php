@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -68,15 +69,28 @@ class UserController extends Controller
                 return back()->with('danger', 'Akun yang sedang Anda pakai tidak bisa dihapus.');
             }
 
-            $user = User::find($id);
-            if (! $user) {
-                return back()->with('danger', 'Data tidak ditemukan.');
+            $hasil = DB::transaction(function () use ($id) {
+                $user = User::where('id', $id)->lockForUpdate()->first();
+                if (! $user) {
+                    return ['ok' => false, 'pesan' => 'Data tidak ditemukan.'];
+                }
+
+                if ($user->role === 'admin'
+                    && User::where('role', 'admin')->where('id', '<>', $id)->count() === 0) {
+                    return ['ok' => false, 'pesan' => 'Admin terakhir tidak bisa dihapus. Angkat admin lain terlebih dahulu.'];
+                }
+
+                $snapshot = $user->only(['name', 'username', 'role']);
+                $user->delete();
+
+                AuditLog::catat('hapus_users', 'users', $id, $snapshot, null);
+
+                return ['ok' => true];
+            });
+
+            if (! $hasil['ok']) {
+                return back()->with('danger', $hasil['pesan']);
             }
-
-            $snapshot = $user->only(['name', 'username', 'role']);
-            $user->delete();
-
-            AuditLog::catat('hapus_users', 'users', $id, $snapshot, null);
 
             return back()->with('success', 'Data berhasil dihapus.');
         }
@@ -160,6 +174,15 @@ class UserController extends Controller
                 $user = User::find($id);
                 if (! $user) {
                     return back()->with('danger', 'Data tidak ditemukan.');
+                }
+
+                if ((int) $user->id === (int) Auth::id() && $role !== $user->role) {
+                    return back()->with('danger', 'Anda tidak dapat mengubah peran akun sendiri. Minta admin lain yang melakukannya.');
+                }
+
+                if ($user->role === 'admin' && $role !== 'admin'
+                    && User::where('role', 'admin')->where('id', '<>', $user->id)->count() === 0) {
+                    return back()->with('danger', 'Admin terakhir tidak bisa diturunkan perannya. Angkat admin lain terlebih dahulu.');
                 }
 
                 $dataLama = $user->only(['name', 'username', 'email', 'role']);

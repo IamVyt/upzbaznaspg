@@ -16,6 +16,8 @@ services:
         value: "false"
       - key: APP_TIMEZONE
         value: Asia/Jakarta
+      - key: APP_URL
+        sync: false
       - key: APP_KEY
         sync: false
       - key: DB_CONNECTION
@@ -32,8 +34,24 @@ services:
         value: stderr
       - key: SESSION_SECURE_COOKIE
         value: "true"
+      # Render meneruskan IP klien lewat X-Forwarded-For. Ganti "*" dengan
+      # daftar IP/CIDR proxy Render bila tersedia agar IP tidak bisa dipalsukan.
+      - key: TRUSTED_PROXIES
+        value: "*"
+      # Render free memblokir port SMTP 25/465/587, jadi email dikirim lewat Resend API (HTTPS).
+      - key: MAIL_MAILER
+        value: resend
+      - key: MAIL_FROM_NAME
+        value: "UPZ BAZNAS Petrokimia Gresik"
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
       # Variabel yang WAJIB diisi di dashboard Render:
+      # - APP_URL (mis. https://nama-app-anda.onrender.com)
       # - APP_KEY (generate via: php artisan key:generate --show; container akan berhenti bila kosong)
+      # - MAIL_FROM_ADDRESS (alamat pengirim pada domain yang sudah diverifikasi di Resend)
+      # - RESEND_API_KEY (API key dari https://resend.com/api-keys)
       # - DB_HOST (dari Supabase Settings > Database > Host)
       # - DB_PORT (biasanya 5432 atau 6543)
       # - DB_DATABASE (biasanya postgres)

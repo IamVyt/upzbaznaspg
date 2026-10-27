@@ -21,17 +21,17 @@ class DashboardController extends Controller
         $katAll = KategoriDana::where('aktif', true)->orderBy('tipe')->orderBy('nama')->get();
         $katMap = ['masuk' => [], 'keluar' => []];
         foreach ($katAll as $k) {
-            $katMap[$k->tipe][] = ['id' => (int)$k->id, 'nama' => $k->nama];
+            $katMap[$k->tipe][] = ['id' => (int) $k->id, 'nama' => $k->nama];
         }
 
         $muzakki = Muzakki::where('aktif', true)->orderBy('nama')->get();
         $mustahik = Mustahik::where('aktif', true)->orderBy('nama')->get();
 
-        $cari = trim((string)$request->query('cari', ''));
-        $mulai = (string)$request->query('tgl_mulai', '');
-        $selesai = (string)$request->query('tgl_selesai', '');
-        $tipe = (string)$request->query('tipe', 'semua');
-        $kategori = (int)$request->query('kategori', 0);
+        $cari = trim((string) $request->query('cari', ''));
+        $mulai = (string) $request->query('tgl_mulai', '');
+        $selesai = (string) $request->query('tgl_selesai', '');
+        $tipe = (string) $request->query('tipe', 'semua');
+        $kategori = (int) $request->query('kategori', 0);
 
         $f = [
             'cari' => $cari,
@@ -66,12 +66,12 @@ class DashboardController extends Controller
         $total = ['masuk' => 0, 'keluar' => 0];
         $jml = ['masuk' => 0, 'keluar' => 0];
 
-        $totals = (clone $kpiQuery)->selectRaw("tipe, COALESCE(SUM(jumlah), 0) as total, COUNT(*) as n")
+        $totals = (clone $kpiQuery)->selectRaw('tipe, COALESCE(SUM(jumlah), 0) as total, COUNT(*) as n')
             ->groupBy('tipe')
             ->get();
         foreach ($totals as $r) {
-            $total[$r->tipe] = (float)$r->total;
-            $jml[$r->tipe] = (int)$r->n;
+            $total[$r->tipe] = (float) $r->total;
+            $jml[$r->tipe] = (int) $r->n;
         }
 
         // Query tabel riwayat transaksi
@@ -92,7 +92,7 @@ class DashboardController extends Controller
         if ($cari !== '') {
             $query->where(function ($q) use ($cari) {
                 $q->where('nama_pihak', 'like', "%{$cari}%")
-                  ->orWhere('keterangan', 'like', "%{$cari}%");
+                    ->orWhere('keterangan', 'like', "%{$cari}%");
             });
         }
 
@@ -105,7 +105,7 @@ class DashboardController extends Controller
             'tgl_selesai' => $f['selesai'],
             'tipe' => $f['tipe'] === 'semua' ? '' : $f['tipe'],
             'kategori' => $f['kategori'] > 0 ? $f['kategori'] : '',
-        ], fn($v) => $v !== '');
+        ], fn ($v) => $v !== '');
 
         // Donasi online yang menunggu verifikasi
         $menunggu = Donasi::whereIn('status', ['menunggu', 'dibayar'])->count();
@@ -119,11 +119,11 @@ class DashboardController extends Controller
         for ($i = 0; $i < 6; $i++) {
             $key = $d->format('Y-m');
             $bulan[$key] = ['masuk' => 0, 'keluar' => 0];
-            $label[] = $namaBulan[(int)$d->format('n') - 1] . ' ' . $d->format('y');
+            $label[] = $namaBulan[(int) $d->format('n') - 1].' '.$d->format('y');
             $d->modify('+1 month');
         }
 
-        $startMonth = array_key_first($bulan) . '-01 00:00:00';
+        $startMonth = array_key_first($bulan).'-01 00:00:00';
         $trxList = Transaksi::aktif()
             ->where('tanggal', '>=', $startMonth)
             ->get(['tanggal', 'tipe', 'jumlah']);
@@ -132,7 +132,7 @@ class DashboardController extends Controller
             $tgl = $t->tanggal instanceof Carbon ? $t->tanggal : Carbon::parse($t->tanggal);
             $bln = $tgl->format('Y-m');
             if (isset($bulan[$bln]) && isset($bulan[$bln][$t->tipe])) {
-                $bulan[$bln][$t->tipe] += (float)$t->jumlah;
+                $bulan[$bln][$t->tipe] += (float) $t->jumlah;
             }
         }
 
@@ -147,22 +147,26 @@ class DashboardController extends Controller
 
     public function proses(Request $request)
     {
-        if (!Auth::user()->canManageFinance()) {
+        if (! Auth::user()->canManageFinance()) {
             return back()->with('danger', 'Anda tidak memiliki izin untuk mengubah transaksi.');
         }
 
-        $aksi   = $request->input('aksi', 'tambah');
-        $id     = (int)$request->input('id', 0);
+        $aksi = $request->input('aksi', 'tambah');
+        $id = (int) $request->input('id', 0);
         $userId = Auth::id();
 
         if ($aksi === 'void') {
             $transaksi = Transaksi::where('id', $id)->whereNull('dibatalkan_at')->first();
-            $alasan = trim((string)$request->input('alasan', ''));
-            if (!$transaksi) {
+            $alasan = trim((string) $request->input('alasan', ''));
+            if (! $transaksi) {
                 return back()->with('danger', 'Transaksi tidak ditemukan atau sudah dibatalkan.');
             }
             if ($alasan === '' || mb_strlen($alasan) > 255) {
                 return back()->with('danger', 'Alasan pembatalan wajib diisi (maksimal 255 karakter).');
+            }
+
+            if (Donasi::where('transaksi_id', $transaksi->id)->exists()) {
+                return back()->with('danger', 'Transaksi ini terhubung dengan donasi online. Hapus donasinya dari menu Data Donasi agar status donasi dan kas tetap konsisten.');
             }
 
             $dataLama = ['nama' => $transaksi->nama_pihak, 'jumlah' => $transaksi->jumlah];
@@ -172,11 +176,12 @@ class DashboardController extends Controller
             ]);
 
             AuditLog::catat('void', 'transaksi', $id, $dataLama, ['alasan' => $alasan]);
+
             return back()->with('success', 'Transaksi dibatalkan. Data tetap tersimpan dengan penanda void.');
         }
 
         if (in_array($aksi, ['hapus_void', 'hapus_semua_void'], true)) {
-            if (!Auth::user()->isAdmin()) {
+            if (! Auth::user()->isAdmin()) {
                 return back()->with('danger', 'Hanya admin yang dapat menghapus permanen transaksi void.');
             }
 
@@ -192,8 +197,11 @@ class DashboardController extends Controller
             $totalNominal = $targets->sum('jumlah');
             $targetIds = $targets->pluck('id')->all();
 
+            if (Donasi::whereIn('transaksi_id', $targetIds)->exists()) {
+                return back()->with('danger', 'Sebagian transaksi void masih terhubung dengan donasi. Hapus donasinya dari menu Data Donasi terlebih dahulu.');
+            }
+
             DB::transaction(function () use ($targetIds) {
-                Donasi::whereIn('transaksi_id', $targetIds)->update(['transaksi_id' => null]);
                 Transaksi::whereIn('id', $targetIds)->delete();
             });
 
@@ -201,25 +209,29 @@ class DashboardController extends Controller
             AuditLog::catat(
                 $aksi,
                 'transaksi',
-                $satu ? (int)$targets[0]->id : null,
+                $satu ? (int) $targets[0]->id : null,
                 $satu ? ['nama' => $targets[0]->nama_pihak, 'tipe' => $targets[0]->tipe, 'jumlah' => $targets[0]->jumlah, 'alasan_batal' => $targets[0]->alasan_batal] : null,
                 ['jumlah_transaksi' => $count, 'total_nominal' => $totalNominal]
             );
 
-            return back()->with('success', $count . ' transaksi void dihapus permanen. Saldo kas tidak berubah.');
+            return back()->with('success', $count.' transaksi void dihapus permanen. Saldo kas tidak berubah.');
         }
 
-        $tipe       = (string)$request->input('tipe');
-        $kategoriId = (int)$request->input('kategori_id');
-        $pihakId    = (int)$request->input('pihak_id') ?: null;
-        $nama       = trim((string)$request->input('nama'));
-        $jumlah     = (float)$request->input('jumlah');
-        $tanggal    = (string)$request->input('tanggal');
-        $keterangan = trim((string)$request->input('keterangan')) ?: null;
+        $tipe = (string) $request->input('tipe');
+        $kategoriId = (int) $request->input('kategori_id');
+        $pihakId = (int) $request->input('pihak_id') ?: null;
+        $nama = trim((string) $request->input('nama'));
+        $jumlahInput = trim((string) $request->input('jumlah'));
+        $jumlah = (float) $jumlahInput;
+        $tanggal = (string) $request->input('tanggal');
+        $keterangan = trim((string) $request->input('keterangan')) ?: null;
 
         $lama = ($aksi === 'ubah' && $id > 0) ? Transaksi::where('id', $id)->whereNull('dibatalkan_at')->first() : null;
-        if ($aksi === 'ubah' && !$lama) {
+        if ($aksi === 'ubah' && ! $lama) {
             return back()->with('danger', 'Transaksi tidak ditemukan atau sudah dibatalkan.');
+        }
+        if ($lama && Donasi::where('transaksi_id', $lama->id)->exists()) {
+            return back()->with('danger', 'Transaksi ini terhubung dengan donasi online. Ubah data donasi dari menu terkait agar tetap konsisten.');
         }
         if ($lama) {
             $tipe = $lama->tipe;
@@ -228,22 +240,34 @@ class DashboardController extends Controller
             $nama = 'Hamba Allah';
         }
 
-        $kat = KategoriDana::where('id', $kategoriId)->where('tipe', $tipe)->where('aktif', true)->first();
-
-        if (!in_array($aksi, ['tambah', 'ubah'], true) || !in_array($tipe, ['masuk', 'keluar'], true)) {
+        if (! in_array($aksi, ['tambah', 'ubah'], true) || ! in_array($tipe, ['masuk', 'keluar'], true)) {
             return back()->with('danger', 'Permintaan tidak valid.');
         }
         if ($nama === '' || mb_strlen($nama) > 150) {
             return back()->with('danger', 'Nama pihak wajib diisi dan maksimal 150 karakter.');
         }
-        if (!$kat) {
-            return back()->with('danger', 'Kategori transaksi wajib dipilih.');
-        }
-        if ($jumlah <= 0) {
+        if ($jumlahInput === '' || ! is_numeric($jumlahInput) || $jumlah <= 0) {
             return back()->with('danger', 'Jumlah harus lebih dari 0.');
         }
-        if (!$tanggal || $tanggal > date('Y-m-d')) {
+        if (! preg_match('/^\d+(?:\.\d{1,2})?$/', $jumlahInput)) {
+            return back()->with('danger', 'Jumlah maksimal 2 angka di belakang koma.');
+        }
+        if ($jumlah > 9999999999999.99) {
+            return back()->with('danger', 'Jumlah melebihi batas yang didukung.');
+        }
+
+        $tanggalValid = preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal) === 1;
+        if ($tanggalValid) {
+            [$tahun, $bulan, $hari] = array_map('intval', explode('-', $tanggal));
+            $tanggalValid = checkdate($bulan, $hari, $tahun);
+        }
+        if (! $tanggalValid || $tanggal > date('Y-m-d')) {
             return back()->with('danger', 'Tanggal tidak valid atau melebihi hari ini.');
+        }
+
+        $kat = KategoriDana::where('id', $kategoriId)->where('tipe', $tipe)->where('aktif', true)->first();
+        if (! $kat) {
+            return back()->with('danger', 'Kategori transaksi wajib dipilih.');
         }
 
         $dataBaru = [
@@ -252,7 +276,7 @@ class DashboardController extends Controller
             'pihak_id' => $pihakId,
             'nama_pihak' => $nama,
             'jumlah' => $jumlah,
-            'tanggal' => Carbon::parse($tanggal . ' ' . date('H:i:s')),
+            'tanggal' => Carbon::parse($tanggal.' '.date('H:i:s')),
             'keterangan' => $keterangan,
         ];
 
@@ -260,12 +284,14 @@ class DashboardController extends Controller
             $dataLama = ['nama' => $lama->nama_pihak, 'jumlah' => $lama->jumlah, 'kategori_id' => $lama->kategori_id];
             $lama->update($dataBaru);
             AuditLog::catat('edit', 'transaksi', $lama->id, $dataLama, $dataBaru);
+
             return back()->with('success', 'Perubahan data transaksi berhasil disimpan.');
         } else {
             $dataBaru['dibuat_oleh'] = $userId;
             $trx = Transaksi::create($dataBaru);
             AuditLog::catat('tambah', 'transaksi', $trx->id, null, $dataBaru);
-            return back()->with('success', ($tipe === 'masuk' ? 'Pemasukan' : 'Pengeluaran') . ' kas berhasil dicatat.');
+
+            return back()->with('success', ($tipe === 'masuk' ? 'Pemasukan' : 'Pengeluaran').' kas berhasil dicatat.');
         }
     }
 }

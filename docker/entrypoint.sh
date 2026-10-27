@@ -34,7 +34,7 @@ fi
 # Seeder TIDAK dijalankan otomatis agar password pengurus tidak pernah di-reset saat deploy.
 if [ -n "$DB_HOST" ] || [ -n "$DB_URL" ] || [ -n "$DATABASE_URL" ]; then
     echo "Menjalankan migrasi database..."
-    php artisan migrate --force || true
+    php artisan migrate --force
 fi
 
 # Seeder opsional dan eksplisit, mis. saat inisialisasi pertama kali:
@@ -44,10 +44,11 @@ if [ "${RUN_SEEDERS:-false}" = "true" ]; then
     php artisan db:seed --force || true
 fi
 
-# Optimasi cache Laravel untuk production
-php artisan config:cache || true
-php artisan route:cache || true
-php artisan view:cache || true
+# Optimasi cache Laravel untuk production. Jangan menelan error: bila cache
+# gagal dibuat, container harus berhenti agar deploy tidak diam-diam rusak.
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
 # Jalankan supervisord (Nginx + PHP-FPM)
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

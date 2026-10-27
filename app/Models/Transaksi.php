@@ -70,6 +70,6 @@ class Transaksi extends Model
 
     public function isBatal(): bool
     {
-        return !is_null($this->dibatalkan_at);
+        return ! is_null($this->dibatalkan_at);
     }
 }

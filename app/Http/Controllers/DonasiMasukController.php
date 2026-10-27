@@ -96,19 +96,27 @@ class DonasiMasukController extends Controller
         $userId = Auth::id();
 
         if ($aksi === 'terima') {
-            $donasi = Donasi::where('id', $id)->whereIn('status', ['menunggu', 'dibayar'])->first();
-            if (! $donasi) {
-                return back()->with('danger', 'Donasi tidak ditemukan atau sudah diproses petugas lain.');
-            }
+            $hasil = DB::transaction(function () use ($id, $userId) {
+                $donasi = Donasi::where('id', $id)->lockForUpdate()->first();
 
-            $kategori = KategoriDana::where('kode', $donasi->kategori_kode)->where('tipe', 'masuk')->where('aktif', true)->first()
-                ?? KategoriDana::where('tipe', 'masuk')->where('aktif', true)->first();
+                if (! $donasi || ! in_array($donasi->status, ['menunggu', 'dibayar'], true)) {
+                    return ['ok' => false, 'pesan' => 'Donasi tidak ditemukan atau sudah diproses petugas lain.'];
+                }
 
-            if (! $kategori) {
-                return back()->with('danger', 'Kategori dana '.$donasi->kategori_kode.' tidak ditemukan atau tidak aktif. Periksa menu Program dan kategori.');
-            }
+                // Jangan pernah memakai kategori lain secara diam-diam: nominal donasi
+                // harus masuk ke kategori yang memang dipilih donatur.
+                $kategori = KategoriDana::where('kode', $donasi->kategori_kode)
+                    ->where('tipe', 'masuk')
+                    ->where('aktif', true)
+                    ->first();
 
-            DB::transaction(function () use ($donasi, $kategori, $userId) {
+                if (! $kategori) {
+                    return [
+                        'ok' => false,
+                        'pesan' => 'Kategori dana '.$donasi->kategori_kode.' tidak ditemukan atau tidak aktif. Periksa menu Program dan kategori.',
+                    ];
+                }
+
                 $namaPihak = $donasi->samarkan_nama ? 'Hamba Allah' : $donasi->nama;
                 $metodeConfig = config('upz.metode_pembayaran', []);
                 $namaMetode = $metodeConfig[$donasi->metode][0] ?? strtoupper($donasi->metode);
@@ -144,36 +152,51 @@ class DonasiMasukController extends Controller
                     'jumlah' => $donasi->jumlah,
                     'transaksi_id' => $trx->id,
                 ]);
+
+                return ['ok' => true, 'kode' => $donasi->kode];
             });
 
-            return back()->with('success', 'Donasi '.$donasi->kode.' dikonfirmasi: status Sudah tersalurkan dan tercatat sebagai pemasukan kas.');
+            if (! $hasil['ok']) {
+                return back()->with('danger', $hasil['pesan']);
+            }
+
+            return back()->with('success', 'Donasi '.$hasil['kode'].' dikonfirmasi: status Sudah tersalurkan dan tercatat sebagai pemasukan kas.');
         } elseif ($aksi === 'tolak') {
             $alasan = trim((string) $request->input('alasan'));
             if ($alasan === '' || mb_strlen($alasan) > 255) {
                 return back()->with('danger', 'Alasan penolakan wajib diisi (maksimal 255 karakter).');
             }
 
-            $donasi = Donasi::where('id', $id)->whereIn('status', ['menunggu', 'dibayar'])->first();
-            if (! $donasi) {
-                return back()->with('danger', 'Donasi tidak ditemukan atau sudah diproses petugas lain.');
+            $hasil = DB::transaction(function () use ($id, $userId, $alasan) {
+                $donasi = Donasi::where('id', $id)->lockForUpdate()->first();
+
+                if (! $donasi || ! in_array($donasi->status, ['menunggu', 'dibayar'], true)) {
+                    return ['ok' => false, 'pesan' => 'Donasi tidak ditemukan atau sudah diproses petugas lain.'];
+                }
+
+                $dataLama = $donasi->only(['status']);
+
+                $donasi->update([
+                    'status' => 'ditolak',
+                    'alasan_tolak' => $alasan,
+                    'diproses_oleh' => $userId,
+                    'diproses_at' => now(),
+                ]);
+
+                AuditLog::catat('donasi_tolak', 'donasi', $donasi->id, $dataLama, [
+                    'status' => 'ditolak',
+                    'kode' => $donasi->kode,
+                    'alasan' => $alasan,
+                ]);
+
+                return ['ok' => true, 'kode' => $donasi->kode];
+            });
+
+            if (! $hasil['ok']) {
+                return back()->with('danger', $hasil['pesan']);
             }
 
-            $dataLama = $donasi->only(['status']);
-
-            $donasi->update([
-                'status' => 'ditolak',
-                'alasan_tolak' => $alasan,
-                'diproses_oleh' => $userId,
-                'diproses_at' => now(),
-            ]);
-
-            AuditLog::catat('donasi_tolak', 'donasi', $donasi->id, $dataLama, [
-                'status' => 'ditolak',
-                'kode' => $donasi->kode,
-                'alasan' => $alasan,
-            ]);
-
-            return back()->with('success', 'Donasi '.$donasi->kode.' ditandai ditolak.');
+            return back()->with('success', 'Donasi '.$hasil['kode'].' ditandai ditolak.');
         } elseif ($aksi === 'hapus') {
             if (! Auth::user()->isAdmin()) {
                 return back()->with('danger', 'Hanya admin yang dapat menghapus data donasi.');

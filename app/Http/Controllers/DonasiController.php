@@ -8,6 +8,7 @@ use App\Models\RekeningBayar;
 use App\Support\BuktiDonasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class DonasiController extends Controller
 {
@@ -93,13 +94,7 @@ class DonasiController extends Controller
         $bank = RekeningBayar::where('jenis', 'bank')->where('aktif', true)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
         $ewallet = RekeningBayar::where('jenis', 'ewallet')->where('aktif', true)->where('nomor', '<>', '')->orderBy('urutan')->orderBy('nama')->get()->keyBy('kode')->toArray();
 
-        $qris = null;
-        foreach (['png', 'jpg', 'webp'] as $ext) {
-            if (file_exists(public_path("img/qris.$ext"))) {
-                $qris = "img/qris.$ext";
-                break;
-            }
-        }
+        $qris = $this->qrisPath();
 
         $metode = config('upz.metode_pembayaran', [
             'transfer' => ['Transfer bank', 'Pilih bank tujuan transfer'],
@@ -301,9 +296,20 @@ class DonasiController extends Controller
      */
     public function sukses(Request $request, $kode)
     {
+        if (! Auth::check()) {
+            session(['tujuan' => $request->fullUrl()]);
+
+            return redirect()->route('login')->with('info', 'Silakan masuk untuk melihat detail donasi Anda.');
+        }
+
         $d = Donasi::where('kode', $kode)->firstOrFail();
-        $userId = Auth::id() ?: 0;
-        $milik = ($userId > 0 && (int) $d->user_id === $userId);
+        $userId = (int) Auth::id();
+        $milik = ((int) $d->user_id === $userId);
+
+        if (! $milik && ! Auth::user()->isStaff()) {
+            abort(403);
+        }
+
         $st = $d->status;
 
         $baru = $request->query('baru') === '1';
@@ -360,14 +366,10 @@ class DonasiController extends Controller
         ];
 
         $m = $metodeList[$d->metode] ?? [$d->metode, '', []];
+        // Partial ganti metode membutuhkan daftar lengkap metode pembayaran.
+        $metode = $metodeList;
 
-        $qris = null;
-        foreach (['png', 'jpg', 'webp'] as $ext) {
-            if (file_exists(public_path("img/qris.$ext"))) {
-                $qris = "img/qris.$ext";
-                break;
-            }
-        }
+        $qris = $this->qrisPath();
 
         $nomor = '';
         $atasNama = '';
@@ -405,6 +407,7 @@ class DonasiController extends Controller
             'nomor',
             'atasNama',
             'qris',
+            'metode',
             'metodeList',
             'bank',
             'ewallet',
@@ -430,8 +433,15 @@ class DonasiController extends Controller
         }
 
         $request->validate([
-            'bukti' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+            'bukti' => [
+                Rule::requiredIf(empty($d->bukti)),
+                'nullable',
+                'image',
+                'mimes:jpeg,png,jpg,webp',
+                'max:2048',
+            ],
         ], [
+            'bukti.required' => 'Bukti pembayaran wajib diunggah agar laporan pembayaran bisa diverifikasi pengurus.',
             'bukti.image' => 'Berkas harus berupa gambar JPG, PNG, atau WebP.',
             'bukti.max' => 'Ukuran berkas gambar maksimal 2 MB.',
         ]);
@@ -538,6 +548,9 @@ class DonasiController extends Controller
         $doa = ($beranda && $request->has('tampil_doa') && trim((string) $d->catatan) !== '') ? 1 : 0;
 
         $namaLama = $d->samarkan_nama ? 'anonim' : ($d->nama_singkat ? 'singkat' : 'lengkap');
+        $berandaLama = (int) $d->tampil_beranda;
+        $doaLama = (int) $d->tampil_doa;
+
         $d->update([
             'samarkan_nama' => ($tn === 'anonim'),
             'nama_singkat' => ($tn === 'singkat'),
@@ -547,8 +560,8 @@ class DonasiController extends Controller
 
         AuditLog::catat('donasi_ubah_tampilan', 'donasi', $d->id, [
             'nama' => $namaLama,
-            'beranda' => (int) $d->tampil_beranda,
-            'doa' => (int) $d->tampil_doa,
+            'beranda' => $berandaLama,
+            'doa' => $doaLama,
         ], [
             'nama' => $tn,
             'beranda' => $beranda,
@@ -640,5 +653,16 @@ class DonasiController extends Controller
         }
 
         return BuktiDonasi::response($d->bukti);
+    }
+
+    private function qrisPath(): ?string
+    {
+        foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
+            if (file_exists(public_path("img/qris.$ext"))) {
+                return "img/qris.$ext";
+            }
+        }
+
+        return null;
     }
 }

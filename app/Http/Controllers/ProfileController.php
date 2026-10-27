@@ -22,9 +22,10 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
 
-        if ($request->filled('email')) {
-            $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
-        }
+        $request->merge([
+            'username' => strtolower(trim((string) $request->input('username'))),
+            'email' => $request->filled('email') ? strtolower(trim((string) $request->input('email'))) : null,
+        ]);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],

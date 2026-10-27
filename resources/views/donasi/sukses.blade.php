@@ -73,8 +73,8 @@
   @if ($milik && $st === 'menunggu')
   <form class="lapor" method="post" action="{{ route('donasi.laporBayar', $d->kode) }}" enctype="multipart/form-data" data-sekali>
    @csrf
-   <label for="bukti">Bukti pembayaran (disarankan, gambar JPG, PNG, atau WebP, maksimal 2 MB)</label>
-   <input id="bukti" type="file" name="bukti" accept="image/jpeg,image/png,image/webp">
+   <label for="bukti">Bukti pembayaran (wajib, gambar JPG, PNG, atau WebP, maksimal 2 MB)</label>
+   <input id="bukti" type="file" name="bukti" accept="image/jpeg,image/png,image/webp" required>
    <button class="btn" type="submit">Saya sudah membayar</button>
   </form>
 

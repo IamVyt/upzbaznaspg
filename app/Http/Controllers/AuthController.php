@@ -22,6 +22,10 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $request->merge([
+            'username' => strtolower(trim((string) $request->input('username'))),
+        ]);
+
         $credentials = $request->validate([
             'username' => ['required', 'string'],
             'password' => ['required', 'string'],
@@ -67,9 +71,10 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        if ($request->filled('email')) {
-            $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
-        }
+        $request->merge([
+            'username' => strtolower(trim((string) $request->input('username'))),
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],

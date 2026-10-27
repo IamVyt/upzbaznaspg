@@ -10,13 +10,13 @@ class EnsureRole
 {
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return redirect()->route('login');
         }
 
         $userRole = auth()->user()->role;
 
-        if (!in_array($userRole, $roles, true)) {
+        if (! in_array($userRole, $roles, true)) {
             return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki hak akses untuk tindakan ini.');
         }
 

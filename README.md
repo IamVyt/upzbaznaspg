@@ -154,7 +154,7 @@ Setelah menjalankan `php artisan migrate --seed`, akun-akun berikut siap digunak
 - Link reset hanya dikirim ke email yang **sudah diverifikasi**, berlaku **60 menit**, dan hanya bisa dipakai sekali. Setelah password direset, pengguna diarahkan ke halaman login.
 - Akun tanpa email atau belum verifikasi tidak dapat memakai fitur ini. Admin dapat mengisi email petugas lewat menu **Kelola pengguna**, sedangkan donatur dapat melengkapi email di menu **Akun**.
 - Di lokal, `MAIL_MAILER=log` membuat link reset tercatat di `storage/logs/laravel.log`, bukan dikirim ke inbox.
-- Di production, isi konfigurasi SMTP di environment (lihat daftar variabel pada bagian deployment). Gunakan App Password bila penyedia email mewajibkannya, dan pastikan `APP_URL` mengarah ke domain HTTPS aplikasi agar link benar.
+- Di production Render free, port SMTP diblokir. Gunakan Resend API: set `MAIL_MAILER=resend`, `RESEND_API_KEY`, `MAIL_FROM_ADDRESS` pada domain yang sudah diverifikasi di Resend, dan `MAIL_FROM_NAME`. Pastikan `APP_URL` mengarah ke domain HTTPS aplikasi agar link benar.
 
 ---
 
@@ -187,6 +187,7 @@ Proyek ini telah dikonfigurasi menggunakan **Docker** dan **Render Blueprint (`r
    - `APP_KEY` = `(Hasil dari 'php artisan key:generate --show')` **wajib; container berhenti bila kosong**
    - `APP_TIMEZONE` = `Asia/Jakarta`
    - `SESSION_SECURE_COOKIE` = `true`
+   - `TRUSTED_PROXIES` = `*` (aplikasi di belakang proxy Render; ganti dengan daftar IP/CIDR proxy bila tersedia)
    - `DB_CONNECTION` = `pgsql`
    - `DB_HOST` = `[Host Supabase Anda]`
    - `DB_PORT` = `5432`
@@ -195,8 +196,18 @@ Proyek ini telah dikonfigurasi menggunakan **Docker** dan **Render Blueprint (`r
    - `DB_PASSWORD` = `[Password Supabase Anda]`
    - `DB_SSLMODE` = `require`
    - *(Atau cukup isi satu variabel `DB_URL` dengan Connection String dari Supabase)*.
-   - Untuk reset password via email, tambahkan `MAIL_MAILER` = `smtp`, `MAIL_HOST`, `MAIL_PORT` (mis. `587`), `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME` = `null`, dan `MAIL_FROM_ADDRESS` sesuai akun pengirim.
+   - Untuk email verifikasi dan reset password, tambahkan `MAIL_MAILER` = `resend`, `RESEND_API_KEY` = API key dari [Resend](https://resend.com/api-keys), `MAIL_FROM_ADDRESS` = alamat pengirim pada domain yang sudah diverifikasi di Resend, dan `MAIL_FROM_NAME` = `UPZ BAZNAS Petrokimia Gresik`.
+   - Render free memblokir port SMTP 25/465/587, jadi jangan memakai Gmail SMTP di paket free. Resend mengirim lewat HTTPS.
 6. Klik **Create Web Service**.
+
+### 2a. Menyiapkan Resend
+1. Buat akun di [Resend](https://resend.com) lalu tambahkan domain pengirim.
+2. Salin record DNS (SPF, DKIM, dan DMARC bila diminta) ke pengelola domain, lalu tunggu status domain **Verified**.
+3. Buat API key di [Resend API Keys](https://resend.com/api-keys), lalu simpan nilainya sebagai `RESEND_API_KEY` di environment Render. Jangan menaruh API key di repositori.
+4. Set `MAIL_FROM_ADDRESS` ke alamat pada domain tersebut, misalnya `no-reply@domain-anda.com`.
+5. Redeploy, lalu uji dengan mendaftarkan akun baru atau menekan **Kirim ulang verifikasi** dari halaman verifikasi/Kelola Pengguna.
+
+> Sebelum domain terverifikasi, Resend hanya mengizinkan pengiriman uji ke email pemilik akun dengan pengirim `onboarding@resend.dev`. Untuk mengirim ke alamat donatur lain, domain pengirim wajib diverifikasi terlebih dahulu.
 
 Container Docker akan otomatis dibangun oleh Render. Saat container menyala, skrip `docker/entrypoint.sh` akan:
 - Menyesuaikan port Nginx secara otomatis dengan port internal Render (`$PORT`).

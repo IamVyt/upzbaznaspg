@@ -133,10 +133,11 @@ class DataDonasiController extends Controller
                 return back()->with('danger', 'Donasi tidak ditemukan atau donatur tidak mengizinkan tampil di beranda.');
             }
 
-            $blokir = $d->beranda_blokir ? false : true;
+            $blokirLama = (bool) $d->beranda_blokir;
+            $blokir = ! $blokirLama;
             $d->update(['beranda_blokir' => $blokir]);
 
-            AuditLog::catat('donasi_beranda', 'donasi', $id, ['kode' => $d->kode, 'disembunyikan' => $d->beranda_blokir], ['kode' => $d->kode, 'disembunyikan' => $blokir]);
+            AuditLog::catat('donasi_beranda', 'donasi', $id, ['kode' => $d->kode, 'disembunyikan' => $blokirLama], ['kode' => $d->kode, 'disembunyikan' => $blokir]);
 
             return back()->with('success', 'Donasi '.$d->kode.($blokir ? ' disembunyikan dari beranda.' : ' ditampilkan lagi di beranda.'));
         }

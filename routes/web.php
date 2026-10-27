@@ -34,8 +34,10 @@ Route::get('/bayar', [DonasiController::class, 'bayarForm'])->name('donasi.bayar
 Route::post('/bayar', [DonasiController::class, 'prosesBayar'])->middleware('throttle:10,1')->name('donasi.prosesBayar');
 
 // Langkah 3: Detail, Instruksi Bayar, dan Bukti Donasi
-Route::get('/donasi/sukses/{kode}', [DonasiController::class, 'sukses'])->name('donasi.sukses');
-Route::get('/donasi/bayar/{kode}', [DonasiController::class, 'bayarRedirect'])->name('donasi.bayar');
+Route::middleware('auth')->group(function () {
+    Route::get('/donasi/sukses/{kode}', [DonasiController::class, 'sukses'])->name('donasi.sukses');
+    Route::get('/donasi/bayar/{kode}', [DonasiController::class, 'bayarRedirect'])->name('donasi.bayar');
+});
 
 // Aksi Donatur (ganti metode, lapor bayar, ubah tampilan beranda, batalkan)
 Route::post('/donasi/lapor-bayar/{kode}', [DonasiController::class, 'uploadBukti'])->middleware('throttle:20,1')->name('donasi.laporBayar');
@@ -48,7 +50,7 @@ Route::get('/bukti/{kode}', [DonasiController::class, 'showBukti'])->name('donas
 // --- Tamu (Guest) ---
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 

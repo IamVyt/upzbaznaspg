@@ -2,19 +2,19 @@
 
 return [
     'site' => [
-        'nama'    => 'UPZ BAZNAS PG',
+        'nama' => 'UPZ BAZNAS PG',
         'lengkap' => 'UPZ BAZNAS Petrokimia Gresik',
-        'email'   => 'upzpkg@gmail.com',
-        'telp'    => '(031) 3973959',
-        'alamat'  => 'Jl. Jenderal Ahmad Yani 07 Gresik, Jawa Timur',
+        'email' => 'upzpkg@gmail.com',
+        'telp' => '(031) 3973959',
+        'alamat' => 'Jl. Jenderal Ahmad Yani 07 Gresik, Jawa Timur',
         'rekening' => ['bank' => 'BSI Syariah', 'nomor' => '2020300041', 'atas_nama' => 'UPZ Baznas Petrokimia Gresik'],
-        'wa'      => '082264904535',
+        'wa' => '082264904535',
         'wa_link' => 'https://wa.me/6282264904535',
-        'peta'    => 'https://www.google.com/maps?q=UPZ+BAZNAS+Petrokimia+Gresik,+Jl.+Jenderal+Ahmad+Yani+No.03,+Gresik&output=embed',
-        'sosial'  => [
-            'Facebook'  => ['#', 'i-fb'],
+        'peta' => 'https://www.google.com/maps?q=UPZ+BAZNAS+Petrokimia+Gresik,+Jl.+Jenderal+Ahmad+Yani+No.03,+Gresik&output=embed',
+        'sosial' => [
+            'Facebook' => ['#', 'i-fb'],
             'Instagram' => ['#', 'i-ig'],
-            'YouTube'   => ['#', 'i-yt'],
+            'YouTube' => ['#', 'i-yt'],
         ],
     ],
 

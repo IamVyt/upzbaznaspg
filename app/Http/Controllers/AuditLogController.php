@@ -10,35 +10,35 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (! Auth::user()->isAdmin()) {
             return redirect()->route('dashboard')->with('danger', 'Halaman riwayat aktivitas hanya dapat diakses oleh Administrator.');
         }
 
-        $cari = trim((string)$request->query('cari', ''));
-        $aksi = trim((string)$request->query('aksi', ''));
+        $cari = trim((string) $request->query('cari', ''));
+        $aksi = trim((string) $request->query('aksi', ''));
 
         $rentangLog = [
             'minggu' => ['1 minggu terakhir', now()->subDays(7)],
-            'bulan'  => ['1 bulan terakhir', now()->subMonth()],
-            'semua'  => ['semua riwayat', null],
+            'bulan' => ['1 bulan terakhir', now()->subMonth()],
+            'semua' => ['semua riwayat', null],
         ];
 
         $hitung = [
-            'semua'  => AuditLog::count(),
+            'semua' => AuditLog::count(),
             'minggu' => AuditLog::where('waktu', '>=', now()->subDays(7))->count(),
-            'bulan'  => AuditLog::where('waktu', '>=', now()->subMonth())->count(),
+            'bulan' => AuditLog::where('waktu', '>=', now()->subMonth())->count(),
         ];
 
         $pesanHapus = [
-            'minggu' => 'Hapus ' . (int)$hitung['minggu'] . ' catatan aktivitas dalam 7 hari terakhir? Tindakan ini tidak bisa dibatalkan.',
-            'bulan'  => 'Hapus ' . (int)$hitung['bulan'] . ' catatan aktivitas dalam 1 bulan terakhir? Tindakan ini tidak bisa dibatalkan.',
-            'semua'  => 'Hapus SEMUA ' . (int)$hitung['semua'] . ' catatan aktivitas, bukan hanya yang tampil di hasil pencarian? Tindakan ini tidak bisa dibatalkan.',
+            'minggu' => 'Hapus '.(int) $hitung['minggu'].' catatan aktivitas dalam 7 hari terakhir? Tindakan ini tidak bisa dibatalkan.',
+            'bulan' => 'Hapus '.(int) $hitung['bulan'].' catatan aktivitas dalam 1 bulan terakhir? Tindakan ini tidak bisa dibatalkan.',
+            'semua' => 'Hapus SEMUA '.(int) $hitung['semua'].' catatan aktivitas, bukan hanya yang tampil di hasil pencarian? Tindakan ini tidak bisa dibatalkan.',
         ];
 
         $ringkasan = [
-            'semua'    => $hitung['semua'],
+            'semua' => $hitung['semua'],
             'hari_ini' => AuditLog::whereDate('waktu', today())->count(),
-            'aktif'    => AuditLog::where('waktu', '>=', now()->subDays(7))->pluck('username')->unique()->filter()->count(),
+            'aktif' => AuditLog::where('waktu', '>=', now()->subDays(7))->pluck('username')->unique()->filter()->count(),
         ];
 
         $terbanyak = AuditLog::selectRaw('aksi, count(*) as n')
@@ -57,8 +57,8 @@ class AuditLogController extends Controller
         if ($cari !== '') {
             $query->where(function ($q) use ($cari) {
                 $q->where('username', 'like', "%{$cari}%")
-                  ->orWhere('tabel', 'like', "%{$cari}%")
-                  ->orWhere('ip', 'like', "%{$cari}%");
+                    ->orWhere('tabel', 'like', "%{$cari}%")
+                    ->orWhere('ip', 'like', "%{$cari}%");
             });
         }
 
@@ -79,11 +79,11 @@ class AuditLogController extends Controller
 
     public function clear(Request $request)
     {
-        if (!Auth::user()->isAdmin()) {
+        if (! Auth::user()->isAdmin()) {
             return back()->with('danger', 'Hanya administrator yang dapat membersihkan riwayat aktivitas.');
         }
 
-        $rentang = (string)$request->input('rentang', 'semua');
+        $rentang = (string) $request->input('rentang', 'semua');
         $query = AuditLog::query();
 
         $label = 'semua riwayat';
@@ -99,7 +99,8 @@ class AuditLogController extends Controller
 
         if ($hapus > 0) {
             AuditLog::catat('audit_hapus', 'audit_log', null, null, ['rentang' => $label, 'dihapus' => $hapus]);
-            return back()->with('success', $hapus . ' catatan aktivitas dihapus (' . $label . ').');
+
+            return back()->with('success', $hapus.' catatan aktivitas dihapus ('.$label.').');
         }
 
         return back()->with('info', 'Tidak ada catatan pada rentang tersebut.');

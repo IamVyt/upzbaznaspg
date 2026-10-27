@@ -96,8 +96,8 @@ class Donasi extends Model
     public function scopeTampilBeranda($query)
     {
         return $query->where('status', 'diterima')
-                     ->where('tampil_beranda', true)
-                     ->where('beranda_blokir', false);
+            ->where('tampil_beranda', true)
+            ->where('beranda_blokir', false);
     }
 
     public function getNamaTampilAttribute(): string
@@ -106,8 +106,9 @@ class Donasi extends Model
             return 'Hamba Allah';
         }
         if ($this->nama_singkat) {
-            return nama_singkat((string)$this->nama);
+            return nama_singkat((string) $this->nama);
         }
+
         return $this->nama ?: 'Hamba Allah';
     }
 }
