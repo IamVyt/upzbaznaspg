@@ -2,7 +2,7 @@
     @php
         $pengguna = auth()->user();
     @endphp
-    @if (! $pengguna->hasVerifiedEmail() && ! request()->routeIs('verification.notice'))
+    @if (verifikasi_email_aktif() && ! $pengguna->hasVerifiedEmail() && ! request()->routeIs('verification.notice'))
         <div class="alert warning" role="status">
             @if ($pengguna->email)
                 <strong>Email belum diverifikasi.</strong>

@@ -32,7 +32,9 @@
      <label for="p-email">Email</label>
      <input id="p-email" type="email" name="email" value="{{ old('email', $user->email) }}" maxlength="100" autocomplete="email">
      @if ($user->email)
-      @if ($user->hasVerifiedEmail())
+      @if (! verifikasi_email_aktif())
+       <small class="bantu">Email dipakai untuk reset password dan pemberitahuan dari UPZ.</small>
+      @elseif ($user->hasVerifiedEmail())
        <small class="bantu">Terverifikasi {{ $user->email_verified_at?->format('d/m/Y') }}.</small>
       @else
        <small class="bantu">Belum diverifikasi. <a class="ul" href="{{ route('verification.notice') }}">Verifikasi sekarang</a>.</small>
@@ -49,7 +51,11 @@
 
    <label for="p-nip">NIP atau ID karyawan (opsional)</label>
    <input id="p-nip" type="text" name="nip" value="{{ old('nip', $user->nip) }}" maxlength="30">
-   <small class="bantu">Mengubah email akan membatalkan status verifikasi. Kami akan mengirim link verifikasi baru ke alamat tersebut.</small>
+   @if (verifikasi_email_aktif())
+    <small class="bantu">Mengubah email akan membatalkan status verifikasi. Kami akan mengirim link verifikasi baru ke alamat tersebut.</small>
+   @else
+    <small class="bantu">Pastikan email aktif karena alamat ini dipakai untuk menerima link reset password.</small>
+   @endif
 
    <button class="btn" type="submit">Simpan profil</button>
   </form>

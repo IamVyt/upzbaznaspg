@@ -7,6 +7,9 @@
  <div class="head">
   <h1 class="tag">Kelola pengguna</h1>
   <p>Akun petugas dan pendaftar. Hanya admin yang dapat memberi peran admin, bendahara, atau ketua.</p>
+  @unless (verifikasi_email_aktif())
+  <p><small class="bantu">Verifikasi email sedang dinonaktifkan. Status email hanya informasi dan tombol kirim ulang disembunyikan.</small></p>
+  @endunless
  </div>
  <div class="bar">
   <div class="pills" role="group" aria-label="Filter status email">
@@ -66,7 +69,7 @@
         <span class="badge in">Terverifikasi</span>
        @else
         <span class="badge wait">Belum verifikasi</span>
-        @if ($bisaUbah)
+        @if ($bisaUbah && verifikasi_email_aktif())
          <form method="post" action="{{ route('users.resendVerification', $r->id) }}" style="display:inline;margin:0 0 0 .35rem;" data-konfirmasi="Kirim ulang link verifikasi ke {{ $r->email }}?">
           @csrf
           <button class="lnk" type="submit" title="Kirim ulang link verifikasi ke {{ $r->email }}">Kirim ulang</button>

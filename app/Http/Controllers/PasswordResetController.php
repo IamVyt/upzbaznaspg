@@ -32,12 +32,14 @@ class PasswordResetController extends Controller
 
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
-        // Hanya email yang sudah diverifikasi yang boleh menerima link reset.
-        if (! $user || ! $user->hasVerifiedEmail()) {
-            return back()->with(
-                'success',
-                'Jika email tersebut terdaftar dan sudah diverifikasi, kami sudah mengirim link reset password. Periksa inbox dan folder spam Anda.'
-            );
+        $pesanGenerik = verifikasi_email_aktif()
+            ? 'Jika email tersebut terdaftar dan sudah diverifikasi, kami sudah mengirim link reset password. Periksa inbox dan folder spam Anda.'
+            : 'Jika email tersebut terdaftar, kami sudah mengirim link reset password. Periksa inbox dan folder spam Anda.';
+
+        // Saat verifikasi email diaktifkan, hanya email terverifikasi yang boleh
+        // menerima link reset. Saat dinonaktifkan, semua email terdaftar boleh.
+        if (! $user || (verifikasi_email_aktif() && ! $user->hasVerifiedEmail())) {
+            return back()->with('success', $pesanGenerik);
         }
 
         try {
@@ -56,10 +58,7 @@ class PasswordResetController extends Controller
         }
 
         // Pesan dibuat generik agar tidak membocorkan apakah sebuah email terdaftar.
-        return back()->with(
-            'success',
-            'Jika email tersebut terdaftar dan sudah diverifikasi, kami sudah mengirim link reset password. Periksa inbox dan folder spam Anda.'
-        );
+        return back()->with('success', $pesanGenerik);
     }
 
     public function resetForm(Request $request, string $token)
@@ -90,7 +89,7 @@ class PasswordResetController extends Controller
 
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
-        if (! $user || ! $user->hasVerifiedEmail()) {
+        if (! $user || (verifikasi_email_aktif() && ! $user->hasVerifiedEmail())) {
             return back()
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Link reset password tidak valid atau sudah kedaluwarsa.']);

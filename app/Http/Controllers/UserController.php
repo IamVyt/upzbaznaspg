@@ -152,7 +152,7 @@ class UserController extends Controller
 
                 $catatanEmail = '';
 
-                if ($email !== null) {
+                if ($email !== null && verifikasi_email_aktif()) {
                     try {
                         $user->sendEmailVerificationNotification();
                         $catatanEmail = ' Link verifikasi sudah dikirim ke email tersebut.';
@@ -205,7 +205,7 @@ class UserController extends Controller
 
                 $catatanEmail = '';
 
-                if ($emailLama !== $email) {
+                if ($emailLama !== $email && verifikasi_email_aktif()) {
                     // Email baru harus diverifikasi ulang sebelum bisa dipakai reset password.
                     $user->forceFill(['email_verified_at' => null])->save();
 
@@ -238,6 +238,10 @@ class UserController extends Controller
     {
         if (! Auth::user()->isAdmin()) {
             return back()->with('danger', 'Anda tidak memiliki izin untuk mengirim verifikasi email.');
+        }
+
+        if (! verifikasi_email_aktif()) {
+            return back()->with('warning', 'Verifikasi email sedang dinonaktifkan, jadi tidak ada link yang perlu dikirim.');
         }
 
         $user = User::find($id);

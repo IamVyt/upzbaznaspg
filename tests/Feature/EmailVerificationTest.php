@@ -20,6 +20,8 @@ class EmailVerificationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Kelas ini menguji perilaku saat verifikasi email diaktifkan.
+        config(['upz.fitur.verifikasi_email' => true]);
         $this->seed(DatabaseSeeder::class);
     }
 

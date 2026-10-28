@@ -38,6 +38,10 @@ services:
       # daftar IP/CIDR proxy Render bila tersedia agar IP tidak bisa dipalsukan.
       - key: TRUSTED_PROXIES
         value: "*"
+      # Verifikasi email dinonaktifkan sementara. Set "true" setelah Resend
+      # terpasang dan domain pengirim berstatus verified.
+      - key: EMAIL_VERIFICATION_ENABLED
+        value: "false"
       # Render free memblokir port SMTP 25/465/587, jadi email dikirim lewat Resend API (HTTPS).
       - key: MAIL_MAILER
         value: resend

@@ -113,6 +113,13 @@ class AuthController extends Controller
             'email' => $user->email,
         ]);
 
+        // Saat verifikasi email dinonaktifkan, akun baru langsung bisa dipakai
+        // dan tidak ada email verifikasi yang dikirim.
+        if (! verifikasi_email_aktif()) {
+            return redirect()->route('home')
+                ->with('success', 'Pendaftaran berhasil. Selamat bergabung, '.$user->name.'!');
+        }
+
         try {
             $user->sendEmailVerificationNotification();
             $status = 'success';

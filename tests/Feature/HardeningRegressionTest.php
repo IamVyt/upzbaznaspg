@@ -257,6 +257,8 @@ class HardeningRegressionTest extends TestCase
 
     public function test_petugas_belum_verifikasi_email_tidak_bisa_masuk_dashboard(): void
     {
+        config(['upz.fitur.verifikasi_email' => true]);
+
         $petugas = User::factory()->create([
             'role' => 'bendahara',
             'email' => 'petugas.belum.verifikasi@example.com',

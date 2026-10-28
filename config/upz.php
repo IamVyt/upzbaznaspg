@@ -1,6 +1,18 @@
 <?php
 
 return [
+    /*
+    |--------------------------------------------------------------------------
+    | Sakelar fitur
+    |--------------------------------------------------------------------------
+    | Verifikasi email dimatikan sementara agar akun baru bisa langsung dipakai
+    | tanpa menunggu link verifikasi. Set EMAIL_VERIFICATION_ENABLED=true dan
+    | pastikan pengiriman email berfungsi untuk mengaktifkannya kembali.
+    */
+    'fitur' => [
+        'verifikasi_email' => env('EMAIL_VERIFICATION_ENABLED', false),
+    ],
+
     'site' => [
         'nama' => 'UPZ BAZNAS PG',
         'lengkap' => 'UPZ BAZNAS Petrokimia Gresik',

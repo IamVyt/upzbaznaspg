@@ -285,6 +285,13 @@ if (! function_exists('ikon_program')) {
     }
 }
 
+if (! function_exists('verifikasi_email_aktif')) {
+    function verifikasi_email_aktif(): bool
+    {
+        return (bool) config('upz.fitur.verifikasi_email', false);
+    }
+}
+
 if (! function_exists('can_input')) {
     function can_input(): bool
     {

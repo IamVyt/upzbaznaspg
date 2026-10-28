@@ -54,8 +54,9 @@ class ProfileController extends Controller
         ]);
 
         $verifikasiTerkirim = false;
+        $verifikasiAktif = verifikasi_email_aktif();
 
-        if ($emailBerubah) {
+        if ($emailBerubah && $verifikasiAktif) {
             // Email baru harus diverifikasi ulang agar status lama tidak terbawa.
             $user->forceFill(['email_verified_at' => null])->save();
 
@@ -71,17 +72,17 @@ class ProfileController extends Controller
 
         AuditLog::catat('ubah_profil', 'users', $user->id, $dataLama, $user->only(['name', 'username', 'email', 'no_hp', 'nip']));
 
-        if ($emailBerubah && $emailBaru !== null) {
+        if ($emailBerubah && $emailBaru === null) {
+            return back()->with('warning', 'Profil diperbarui. Email dihapus, sehingga reset password via email tidak tersedia sampai Anda menambahkan email kembali.');
+        }
+
+        if ($emailBerubah && $verifikasiAktif) {
             return back()->with(
                 $verifikasiTerkirim ? 'success' : 'warning',
                 $verifikasiTerkirim
                     ? 'Profil diperbarui. Kami sudah mengirim link verifikasi ke email baru Anda.'
                     : 'Profil diperbarui, tetapi link verifikasi belum bisa dikirim. Coba kirim ulang dari halaman verifikasi.'
             );
-        }
-
-        if ($emailBerubah) {
-            return back()->with('warning', 'Profil diperbarui. Email dihapus, sehingga reset password via email tidak tersedia sampai Anda menambahkan dan memverifikasi email.');
         }
 
         return back()->with('success', 'Profil akun Anda berhasil diperbarui.');

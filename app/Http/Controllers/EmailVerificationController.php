@@ -10,6 +10,11 @@ class EmailVerificationController extends Controller
 {
     public function notice(Request $request)
     {
+        if (! verifikasi_email_aktif()) {
+            return redirect()->route($this->tujuan($request->user()))
+                ->with('info', 'Verifikasi email sedang dinonaktifkan, jadi akun Anda bisa langsung dipakai.');
+        }
+
         if ($request->user()->hasVerifiedEmail()) {
             return redirect()->route($this->tujuan($request->user()))
                 ->with('info', 'Email Anda sudah terverifikasi.');
@@ -41,6 +46,10 @@ class EmailVerificationController extends Controller
 
     public function send(Request $request)
     {
+        if (! verifikasi_email_aktif()) {
+            return back()->with('info', 'Verifikasi email sedang dinonaktifkan, jadi tidak ada link yang perlu dikirim.');
+        }
+
         $user = $request->user();
 
         if ($user->hasVerifiedEmail()) {

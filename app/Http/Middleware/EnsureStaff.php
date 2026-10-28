@@ -21,8 +21,9 @@ class EnsureStaff
         }
 
         // Akun petugas yang punya email wajib memverifikasi email sebelum
-        // bisa membuka area back-office. Akun lama tanpa email tetap diizinkan.
-        if ($user->email && ! $user->hasVerifiedEmail()) {
+        // bisa membuka area back-office saat fitur verifikasi diaktifkan.
+        // Akun lama tanpa email tetap diizinkan.
+        if (verifikasi_email_aktif() && $user->email && ! $user->hasVerifiedEmail()) {
             return redirect()->route('verification.notice')
                 ->with('warning', 'Verifikasi email Anda terlebih dahulu sebelum membuka area pengurus.');
         }

@@ -17,8 +17,8 @@ Sistem Informasi Manajemen Keuangan dan Layanan Donasi Online Unit Pengumpul Zak
 - **Instruksi Transfer & Unggah Bukti:** Halaman petunjuk pembayaran unik dan form upload bukti transfer aman.
 - **Kuitansi Digital Siap Cetak:** Format tanda terima sementara & bukti setor donasi resmi (`window.print()`).
 - **Portal Donatur:** Riwayat donasi pribadi donatur dan pengaturan profil akun.
-- **Verifikasi Email Registrasi:** Email wajib diisi saat mendaftar. Link verifikasi berlaku 60 menit dan bisa dikirim ulang dari banner atau halaman verifikasi.
-- **Reset Password via Email:** Donatur dan petugas dapat meminta link reset password dari halaman login; token berlaku 60 menit, hanya sekali pakai, dan hanya dikirim ke email yang sudah diverifikasi.
+- **Verifikasi Email Registrasi (opsional):** Email wajib diisi saat mendaftar. Fitur verifikasi email saat ini **dinonaktifkan** lewat `EMAIL_VERIFICATION_ENABLED=false`, sehingga akun baru langsung bisa dipakai. Saat diaktifkan, link verifikasi berlaku 60 menit dan bisa dikirim ulang dari banner atau halaman verifikasi.
+- **Reset Password via Email:** Donatur dan petugas dapat meminta link reset password dari halaman login; token berlaku 60 menit dan hanya sekali pakai.
 - **Daftar Donatur Beranda (Opt-in):** Donatur yang telah terverifikasi dan menyetujui ditampilkan di landing page.
 
 ### 2. Back-Office & Manajemen Keuangan
@@ -134,25 +134,35 @@ Setelah menjalankan `php artisan migrate --seed`, akun-akun berikut siap digunak
 
 > **Penting:** ganti seluruh password akun default sebelum dipakai produksi. Seeder memakai `firstOrCreate`, sehingga menjalankan seeder ulang **tidak** menimpa password, role, atau nomor rekening yang sudah diubah pengurus.
 >
-> Akun demo dari seeder ditandai sudah terverifikasi agar alur presentasi tidak terhalang. Ganti emailnya dengan alamat asli melalui **Akun** atau **Kelola pengguna**; perubahan email otomatis membatalkan status verifikasi dan mengirim link verifikasi baru.
+> Akun demo dari seeder ditandai sudah terverifikasi agar alur presentasi tidak terhalang. Ganti emailnya dengan alamat asli melalui **Akun** atau **Kelola pengguna**. Bila verifikasi email diaktifkan (`EMAIL_VERIFICATION_ENABLED=true`), perubahan email otomatis membatalkan status verifikasi dan mengirim link verifikasi baru.
 
 ---
 
 ## ✉️ Verifikasi Email
 
-- Registrasi mewajibkan email. Setelah mendaftar, pengguna diarahkan ke `/email/verify` dan menerima link verifikasi yang berlaku **60 menit**.
+Verifikasi email dikendalikan oleh satu sakelar: `EMAIL_VERIFICATION_ENABLED` (dibaca di `config/upz.php`). Nilai bawaan dan nilai di `render.yaml` saat ini adalah **`false`**, sehingga verifikasi email dinonaktifkan sementara.
+
+**Saat dinonaktifkan (`false`):**
+- Registrasi tetap mewajibkan email, tetapi akun baru langsung bisa dipakai dan diarahkan ke beranda tanpa mengirim link verifikasi.
+- Petugas belum terverifikasi tetap bisa membuka panel back-office.
+- Lupa password berlaku untuk semua email terdaftar.
+- Banner verifikasi dan tombol kirim ulang disembunyikan. Status email di **Kelola pengguna** tetap tampil sebagai informasi.
+
+**Saat diaktifkan (`true`):**
+- Setelah mendaftar, pengguna diarahkan ke `/email/verify` dan menerima link verifikasi yang berlaku **60 menit**.
 - Halaman verifikasi menyediakan tombol **kirim ulang** dengan batas 6 permintaan per menit.
-- Selama email belum diverifikasi, banner peringatan tampil di portal maupun panel petugas. Setelah verifikasi, pengguna diarahkan ke dashboard (petugas) atau beranda (donatur).
-- Mengubah email di **Akun** atau lewat **Kelola pengguna** otomatis membatalkan status verifikasi lama dan mengirim link baru ke alamat tersebut.
-- Akun lama yang belum pernah verifikasi dapat memakai tombol kirim ulang di banner. Status verifikasi juga terlihat di halaman **Akun**.
+- Selama email belum diverifikasi, banner peringatan tampil di portal maupun panel petugas. Petugas wajib verifikasi sebelum masuk back-office.
+- Mengubah email di **Akun** atau lewat **Kelola pengguna** membatalkan status verifikasi lama dan mengirim link baru ke alamat tersebut.
+- Lupa password hanya mengirim link ke email yang sudah diverifikasi. Aktifkan fitur ini setelah pengiriman email (Resend/SMTP) terbukti berjalan.
 
 ---
 
 ## 🔑 Reset Password via Email
 
 - Halaman permintaan: `/forgot-password` (link “Lupa password?” juga tersedia di halaman login).
-- Link reset hanya dikirim ke email yang **sudah diverifikasi**, berlaku **60 menit**, dan hanya bisa dipakai sekali. Setelah password direset, pengguna diarahkan ke halaman login.
-- Akun tanpa email atau belum verifikasi tidak dapat memakai fitur ini. Admin dapat mengisi email petugas lewat menu **Kelola pengguna**, sedangkan donatur dapat melengkapi email di menu **Akun**.
+- Link reset berlaku **60 menit** dan hanya bisa dipakai sekali. Setelah password direset, pengguna diarahkan ke halaman login.
+- Selama `EMAIL_VERIFICATION_ENABLED=false`, semua akun dengan email terdaftar dapat memakai fitur ini. Bila verifikasi diaktifkan, hanya email yang sudah diverifikasi yang menerima link.
+- Akun tanpa email tidak dapat memakai fitur ini. Admin dapat mengisi email petugas lewat menu **Kelola pengguna**, sedangkan donatur dapat melengkapi email di menu **Akun**.
 - Di lokal, `MAIL_MAILER=log` membuat link reset tercatat di `storage/logs/laravel.log`, bukan dikirim ke inbox.
 - Di production Render free, port SMTP diblokir. Gunakan Resend API: set `MAIL_MAILER=resend`, `RESEND_API_KEY`, `MAIL_FROM_ADDRESS` pada domain yang sudah diverifikasi di Resend, dan `MAIL_FROM_NAME`. Pastikan `APP_URL` mengarah ke domain HTTPS aplikasi agar link benar.
 
@@ -197,6 +207,7 @@ Proyek ini telah dikonfigurasi menggunakan **Docker** dan **Render Blueprint (`r
    - `DB_SSLMODE` = `require`
    - *(Atau cukup isi satu variabel `DB_URL` dengan Connection String dari Supabase)*.
    - Untuk email verifikasi dan reset password, tambahkan `MAIL_MAILER` = `resend`, `RESEND_API_KEY` = API key dari [Resend](https://resend.com/api-keys), `MAIL_FROM_ADDRESS` = alamat pengirim pada domain yang sudah diverifikasi di Resend, dan `MAIL_FROM_NAME` = `UPZ BAZNAS Petrokimia Gresik`.
+   - `EMAIL_VERIFICATION_ENABLED` = `false` (biarkan nonaktif sampai pengiriman email terbukti berjalan). Ubah ke `true` bila verifikasi email ingin diwajibkan kembali.
    - Render free memblokir port SMTP 25/465/587, jadi jangan memakai Gmail SMTP di paket free. Resend mengirim lewat HTTPS.
 6. Klik **Create Web Service**.
 
@@ -205,7 +216,7 @@ Proyek ini telah dikonfigurasi menggunakan **Docker** dan **Render Blueprint (`r
 2. Salin record DNS (SPF, DKIM, dan DMARC bila diminta) ke pengelola domain, lalu tunggu status domain **Verified**.
 3. Buat API key di [Resend API Keys](https://resend.com/api-keys), lalu simpan nilainya sebagai `RESEND_API_KEY` di environment Render. Jangan menaruh API key di repositori.
 4. Set `MAIL_FROM_ADDRESS` ke alamat pada domain tersebut, misalnya `no-reply@domain-anda.com`.
-5. Redeploy, lalu uji dengan mendaftarkan akun baru atau menekan **Kirim ulang verifikasi** dari halaman verifikasi/Kelola Pengguna.
+5. Set `EMAIL_VERIFICATION_ENABLED=true` bila ingin mewajibkan verifikasi, lalu redeploy dan uji dengan mendaftarkan akun baru atau menekan **Kirim ulang verifikasi** dari halaman verifikasi/Kelola Pengguna.
 
 > Sebelum domain terverifikasi, Resend hanya mengizinkan pengiriman uji ke email pemilik akun dengan pengirim `onboarding@resend.dev`. Untuk mengirim ke alamat donatur lain, domain pengirim wajib diverifikasi terlebih dahulu.
 
@@ -234,7 +245,7 @@ Setelah deploy berstatus *Live*:
 ## 🔒 Catatan Keamanan
 - Bukti transfer disimpan di `storage/app/private` dan hanya bisa diakses oleh pemilik donasi atau petugas melalui route `bukti/{kode}`.
 - Login, registrasi, permintaan reset password, kirim ulang verifikasi email, pembuatan donasi, dan upload bukti dibatasi rate limit untuk mengurangi brute force/spam.
-- Link verifikasi memakai signed URL dan hash email; mengubah email membatalkan verifikasi agar status lama tidak bisa dipakai ulang.
+- Link verifikasi memakai signed URL dan hash email. Saat `EMAIL_VERIFICATION_ENABLED=true`, mengubah email membatalkan verifikasi agar status lama tidak bisa dipakai ulang.
 - Zona waktu aplikasi mengikuti `APP_TIMEZONE` (default `Asia/Jakarta`).
 - Session dan cache memakai driver file; aplikasi ini dirancang untuk satu instance. Untuk banyak instance, pindahkan session/cache ke Redis atau database secara terpusat.
 - Jangan commit `.env`, bukti transfer, atau file upload lain ke repositori.
